@@ -3,12 +3,17 @@
 # Usage: PROFILE=ant ARCH=armv7 ./install-profile.sh
 # Usage: PROFILE=herd ARCH=armv7 ./install-profile.sh
 # Usage: PROFILE=swarm ROOTFS=rootfs-armv7 ./install-profile.sh
+
+# распаковка ramdisk
+# gzip -dc ../ramdisk.cpio.gz | cpio -idmv
 set -e
 
 ARCH="${ARCH:-armv7}"
 ROOTFS="${ROOTFS:-rootfs-$ARCH}"
 PROFILE="${PROFILE:-ant}"
-SRC="${SRC:-profiles/$PROFILE}"
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+BASE="${BASE:-$(dirname "$SCRIPT_DIR")}"   # parent of r3build/
+SRC="${SRC:-$BASE/r3build/profiles/$PROFILE}"
 
 [ -d "$ROOTFS" ] || { echo "no $ROOTFS"; exit 1; }
 [ -d "$SRC" ]    || { echo "no profile $SRC"; exit 1; }
@@ -34,5 +39,10 @@ if [ ! -e "$ROOTFS/sbin/init" ] && [ -x "$ROOTFS/bin/busybox" ]; then
   mkdir -p "$ROOTFS/sbin"
   ln -sf /bin/busybox "$ROOTFS/sbin/init"
 fi
-
+# упаковка ramdisk
+# gzip -dc ../ramdisk.cpio.gz | cpio -idmv
+# mkimage -f fit618.its fitImage_new
+cd $ROOTFS
+find . | cpio -o -H newc | gzip -9 > ../ramdisk_${PROFILE}_${ARCH}.cpio.gz
+cd ..
 echo "OK $SRC → $ROOTFS"
