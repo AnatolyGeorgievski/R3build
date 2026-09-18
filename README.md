@@ -53,9 +53,25 @@ BOOT.bin (загрузка с SD/QSPI/NAND/NOR):
                └── shutdown: /etc/init.d/rcK (Корректная остановка демонов перед reboot)
 ```
 
+## ⚙️ Слияние профилей и аппаратура плат
+```
+├── repo/${ARCH}/             # Репозиторий прикладных программ: bmu, gminer, godminer
+├── profiles/                 # К какому "типу" относится прошивка
+│   ├── ant/
+│   │   └── packages          # dropbear, mtd-utils, ca-certificates, bmu-parser
+│   └── herd/
+│       └── packages          # dropbear, mtd-utils, ca-certificates, R3-mcp
+└── board/                    # Железо (файлы fstab, dts, kernel)
+    ├── bb/                   # TI Sitara   (armhf) -> console=ttyO0
+    ├── zynq7000/             # Xilinx Zynq (armv7) -> console=ttyPS0
+    ├── aml/                  # Amlogic   (aarch64) -> console=ttyAML0
+    └── cv18x/                # CVtech    (aarch64) -> console=ttyS0
+```
+
 ## 🛠️ Доступные профили пакетов
 
-Система сборки поддерживает модульные профили для разных задач. Например, профиль `ant` автоматически включает в себя:
+Система сборки поддерживает модульные профили для разных задач. 
+Например, профиль `ant` автоматически включает в себя:
 * `dropbear` и `dropbear-scp` — легковесный SSH-доступ.
 * `ca-certificates` — корневые сертификаты для доверенного подключения к репозиториям.
 * `mtd-utils-flash` и `mtd-utils-ubi` — набор утилит для обновления прошивки (NAND/NOR).
