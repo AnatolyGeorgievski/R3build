@@ -1,0 +1,399 @@
+{
+  "protocolVersion": "2024-11-05",
+  "jsonrpc": "2.0",
+  "serverInfo": {
+    "name": "netd",
+    "version": "0.1.1",
+    "title": "netd BCP",
+    "description": "Network + registry + firmware applets (pool, conf, boards, dns, ntp, mdns, bmu, tar)"
+  },
+  "capabilities": {
+    "tools": {
+      "listChanged": true
+    },
+    "resources": {
+      "listChanged": false
+    },
+    "prompts": {
+      "listChanged": false
+    }
+  },
+  "tools": [
+    {
+      "name": "pool",
+      "title": "Mining pool list/add/set/remove/select",
+      "description": "Args: list | add | set | remove | select — same as CLI ./netd pool …",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "cmd": {
+            "type": "string",
+            "description": "list|add|set|remove|select"
+          },
+          "url": {
+            "type": "string"
+          },
+          "worker": {
+            "type": "string"
+          },
+          "index": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "conf",
+      "title": "netd flat config",
+      "description": "show|load|save — /etc/netd_config.conf",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "cmd": {
+            "type": "string",
+            "enum": [
+              "show",
+              "load",
+              "save",
+              "sync"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "boards",
+      "title": "Mock / seeded board list",
+      "description": "Print board_list from registry seed",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "netlink",
+      "title": "Link/addr dump",
+      "description": "YAML-ish netlink cache",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "dns",
+      "title": "DNS resolve A/TXT",
+      "description": "Args: name [A|TXT]",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "ntp",
+      "title": "NTP query",
+      "description": "Args: a.b.c.d [--set]",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "server": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "ls",
+      "title": "Directory list",
+      "description": "Args: path or glob",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "mdns",
+      "title": "mDNS herd dump/watch",
+      "description": "CLI: mdns [dump|watch [sec] [if]] — peer table from react/mDNS",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "$1": {
+            "type": "string",
+            "enum": [
+              "dump",
+              "watch"
+            ]
+          },
+          "$2": {
+            "type": "string",
+            "description": "watch seconds"
+          },
+          "$3": {
+            "type": "string",
+            "description": "watch interface"
+          }
+        }
+      }
+    },
+    {
+      "name": "react",
+      "title": "Herd react loop",
+      "description": "CLI: react [status|herd|start [if] [port]|stop]",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "$1": {
+            "type": "string",
+            "enum": [
+              "status",
+              "herd",
+              "start",
+              "stop"
+            ]
+          },
+          "$2": {
+            "type": "string",
+            "description": "interface for start"
+          },
+          "$3": {
+            "type": "string",
+            "description": "MCP/RPC port announced in mDNS"
+          }
+        }
+      }
+    },
+    {
+      "name": "zcip",
+      "title": "IPv4 link-local (RFC 3927)",
+      "description": "CLI: zcip <ifname> [169.254.x.y]",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "$1": {
+            "type": "string",
+            "description": "interface"
+          },
+          "$2": {
+            "type": "string",
+            "description": "optional preferred 169.254.x.y"
+          }
+        }
+      }
+    },
+    {
+      "name": "bmu",
+      "title": "BMU firmware archive",
+      "description": "Verify/list BMU: -V -s HARDWARE file.bmu pubkey [outdir]. CLI same as ./netd bmu …",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "cmd": {
+            "type": "string",
+            "description": "verify|list|extract (maps to -V/-x)"
+          },
+          "hardware": {
+            "type": "string",
+            "description": "-s pattern e.g. AMLCtrl_BHB56XXX"
+          },
+          "bmu": {
+            "type": "string",
+            "description": "path to .bmu"
+          },
+          "pub": {
+            "type": "string",
+            "description": "RSA public key PEM path"
+          },
+          "path": {
+            "type": "string",
+            "description": "output dir for extract"
+          }
+        }
+      }
+    },
+    {
+      "name": "tar",
+      "title": "ustar list/extract",
+      "description": "Canonical: tar -t archive.tar | tar -x -C /dest archive.tar. Paths with .. rejected.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "cmd": {
+            "type": "string",
+            "enum": [
+              "list",
+              "extract"
+            ],
+            "description": "-t or -x"
+          },
+          "archive": {
+            "type": "string",
+            "description": "path to .tar or .tar.gz"
+          },
+          "dest": {
+            "type": "string",
+            "description": "-C extract directory"
+          }
+        },
+        "required": [
+          "archive"
+        ]
+      }
+    },
+    {
+      "name": "dtree",
+      "title": "Device tree seed / list",
+      "description": "dtree create|get|set|delete. get/set via object_get_param/object_set_param (.rep only).",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "cmd": {
+            "type": "string",
+            "description": "create | get | set | delete | list | dump | class"
+          },
+          "oid": {
+            "type": "string",
+            "description": "rt@ins"
+          },
+          "prop": {
+            "type": "string",
+            "description": "property in class .ns/.rep"
+          },
+          "$1": {
+            "type": "string",
+            "description": "cmd (alt) or set value"
+          },
+          "$2": {
+            "type": "string",
+            "description": "rt@ins alt"
+          }
+        }
+      }
+    },
+    {
+      "name": "test",
+      "title": "POSIX test / [",
+      "description": "Conditional evaluation: -f -d -e -z -n --eq --ne --lt --le --gt --ge. Args mirror CLI; use $1 $2 for operands with BOOL ops.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "f": {
+            "type": "string",
+            "description": "regular file PATH"
+          },
+          "d": {
+            "type": "string",
+            "description": "directory PATH"
+          },
+          "e": {
+            "type": "string",
+            "description": "exists PATH"
+          },
+          "z": {
+            "type": "boolean",
+            "description": "empty string test; operand $1"
+          },
+          "n": {
+            "type": "boolean",
+            "description": "non-empty; operand $1"
+          },
+          "eq": {
+            "type": "boolean"
+          },
+          "ne": {
+            "type": "boolean"
+          },
+          "lt": {
+            "type": "boolean"
+          },
+          "gt": {
+            "type": "boolean"
+          },
+          "le": {
+            "type": "boolean"
+          },
+          "ge": {
+            "type": "boolean"
+          },
+          "$1": {
+            "type": "string"
+          },
+          "$2": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "resources": [
+    {
+      "uri": "file://src/mcp_netd.json",
+      "name": "mcp_manifest",
+      "title": "MCP manifest",
+      "description": "Self manifest for smoke tests",
+      "mimeType": "application/json"
+    },
+    {
+      "uri": "miner://status",
+      "name": "status_snapshot",
+      "title": "Status snapshot (stub)",
+      "description": "YAML-ish status for BCP without hardware",
+      "mimeType": "application/json"
+    },
+    {
+      "uri": "file:///tmp/out",
+      "name": "extract_workdir",
+      "title": "BMU/tar extract workdir",
+      "description": "Typical -C /tmp/out target for firmware smoke",
+      "mimeType": "text/plain"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "diagnose",
+      "title": "Diagnose network",
+      "description": "Run netlink + dns + ntp + mdns dump for netd BCP"
+    },
+    {
+      "name": "pool_check",
+      "title": "Check mining pools",
+      "description": "List configured pools and active index"
+    },
+    {
+      "name": "firmware_check",
+      "title": "Firmware BMU verify",
+      "description": "bmu -V -s HARDWARE file.bmu /etc/bitmain.pub — trust anchors under /etc or /etc/trusted"
+    }
+  ],
+  "resourceTemplates": [
+    {
+      "uriTemplate": "file://config/topo_{board}.json",
+      "name": "board_topology",
+      "description": "Topology topo_{board}.json",
+      "mimeType": "application/json"
+    },
+    {
+      "uriTemplate": "file:///tmp/out/{name}",
+      "name": "extracted_blob",
+      "description": "File under BMU/tar extract tree",
+      "mimeType": "application/octet-stream"
+    }
+  ]
+}

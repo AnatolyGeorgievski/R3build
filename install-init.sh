@@ -13,7 +13,7 @@ ROOTFS="${ROOTFS:-rootfs-$ARCH}"
 PROFILE="${PROFILE:-ant}"
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 BASE="${BASE:-$(dirname "$SCRIPT_DIR")}"   # parent of r3build/
-SRC= "${SRC:-$BASE/r3build/profiles/$PROFILE}"
+SRC="${SRC:-$BASE/r3build/profiles/$PROFILE}"
 REPO="${SRC:-$BASE/r3build/repo/$ARCH}"
 
 [ -d "$ROOTFS" ] || { echo "no $ROOTFS"; exit 1; }
@@ -35,12 +35,25 @@ cp -a "$SRC"/. "$ROOTFS"/
 [ -f "$ROOTFS/init" ] && chmod +x "$ROOTFS/init"
 [ -f "$ROOTFS/etc/init.d/rcS" ] && chmod +x "$ROOTFS/etc/init.d/rcS"
 [ -f "$ROOTFS/etc/init.d/rcK" ] && chmod +x "$ROOTFS/etc/init.d/rcK"
+[ -f "$ROOTFS/sbin/netd" ] && chmod +x "$ROOTFS/sbin/netd"
+[ -f "$ROOTFS/root/e9pro" ] && chmod +x "$ROOTFS/root/e9pro"
 
 # init → busybox, если нет
 if [ ! -e "$ROOTFS/sbin/init" ] && [ -x "$ROOTFS/bin/busybox" ]; then
   mkdir -p "$ROOTFS/sbin"
   ln -sf /bin/busybox "$ROOTFS/sbin/init"
 fi
+
+# netd в образе — бинарник этой платформы, не чужой загрузчик
+case "$ARCH" in
+  armv7) loader=ld-musl-armhf.so.1 ;;
+  aarch64) loader=ld-musl-aarch64.so.1 ;;
+  *) echo "ARCH $ARCH: no loader"; exit 1 ;;
+esac
+netd="$ROOTFS/sbin/netd"
+[ -f "$netd" ] || { echo "no $netd"; exit 1; }
+grep -a -F -q "/lib/$loader" "$netd" || { echo "netd is not for $ARCH"; exit 1; }
+[ -e "$ROOTFS/lib/$loader" ] || { echo "no $ROOTFS/lib/$loader"; exit 1; }
 
 # Функция инсталляции пакетов
 REPO="${SRC:-$BASE/r3build/repo/$ARCH}"

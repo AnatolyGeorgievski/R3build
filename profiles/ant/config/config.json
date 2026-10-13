@@ -1,0 +1,88 @@
+{
+"$schema":"schema/config.json",
+"dev":{"type":"dev", "name":"Antminer E9-pro", 
+	"location":"work", "description":"1-2-3"
+},
+"ctrl":{"type":"Zynq7020"},
+"bus":[
+    {"type":"fpga", "name":"brd.1", "baudrate":3125000, "gpio_rst":962, "gpio_pd":964, "path":"/dev/i2c-0"},
+    {"type":"fpga", "name":"brd.2", "baudrate":3125000, "gpio_rst":961, "gpio_pd":965, "path":"/dev/i2c-1"}
+],
+"env":{
+	"$comment":"датчики окружения и PIC контроллер"
+},
+"pool":[
+	{
+	"url": "stratum+tcp://etc.f2pool.com:8008",
+	"worker": "52868CC7EEFC",
+	"login": "georgelost",
+	"passwd": "x"
+	},
+	{
+	"url": "stratum+tcp://ru.etc.k1pool.org:3820",
+	"worker": "52868CC7EEFC",
+	"login": "KrcxnmYY8pqPrpXEi7HaWtCePGeJdpHrRBt.ANT",
+	"passwd": "x"
+	},
+	{
+	"url": "stratum+tcp://eu.etc.k1pool.com:3833",
+	"worker": "52868CC7EEFC",
+	"login": "KrcxnmYY8pqPrpXEi7HaWtCePGeJdpHrRBt.ANT",
+	"passwd": "x"
+	}
+],
+"services":{
+  "log": {
+    "type": "file",
+    "domains": ["stratum"],
+    "contentType": "application/json",
+    "description": "журнал операций, в локальный файл"
+  },
+  "mqtt": {
+    "type": "mqtt",
+    "id": "1234",
+    "host": "192.168.1.10",
+    "port": 8883,
+    "keepalive": 60,
+    "path": "/",
+    "domains": ["stratum", "hist", "nonce", "psu"],
+    "contentType": "application/json",
+    "description": "сервер MQTT"
+  },
+  "coap": {
+    "type": "coap",
+    "port": 5683,
+    "keepalive": 60,
+    "maxAge": 60,
+    "contentType": "application/cbor",
+    "accept": ["application/json", "application/cbor"],
+    "proxy": "192.168.191.199",
+    "description": "сервис CoAP локальный, настройка"
+  },
+  "rest": {
+    "type": "http",
+    "port": 8080,
+    "keepalive": 60,
+    "maxAge": 60,
+    "contentType": "application/json",
+    "accept": ["application/json"],
+    "description": "сервис HTTP REST локальный, настройка"
+  },
+  "keys": {
+    "type": "crisp",
+    "host": "192.168.191.199",
+    "port": 5683,
+    "keepalive": 60,
+    "description": "сервер CRISP ключей шифрования"
+  },
+  "mcp": {
+    "type": "mcp",
+    "port": 8081,
+    "path": "/mcp",
+    "protocolVersion": "2026-07-28",
+    "contentType": "application/json",
+    "description": "MCP json-rpc service"
+  }
+},
+"$defs":{}
+}
