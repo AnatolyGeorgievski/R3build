@@ -6,7 +6,7 @@ ARCH="${ARCH:-aarch64}"
 VER="${VER:-3.21}"
 ROOTFS="${ROOTFS:-rootfs-$ARCH}"
 MIRROR="https://dl-cdn.alpinelinux.org/alpine/v${VER}/main"
-APK="${APK:-./r3build/apk.static}"   # путь к уже лежащему apk.static
+APK="${APK:-./r3build/apk.static}"   # fetch-apk-static.sh, не из git
 
 # rm -rf "$ROOTFS" || true
 mkdir -p "$ROOTFS"

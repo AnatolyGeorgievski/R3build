@@ -6,10 +6,10 @@
 
 ## Граница
 
-- Пакеты: Alpine 3.21, `apk.static` 3.0.8, зеркало `v3.21/main`.
+- Пакеты: Alpine 3.21, зеркало `v3.21/main`. Хостовый `apk.static` даёт `fetch-apk-static.sh`, в git его нет.
 - `--allow-untrusted` только для первого `add alpine-keys`. Дальше проверка по `$ROOTFS/etc/apk/keys`.
 - `--no-script --no-cache`. OpenRC нет.
-- Живые `/home/george/rootfs-*` и `/home/george/alpine` не пересобирать. Проба — `/tmp`.
+- Корень сборки: `CWD=/home/{name}`. Живые `$CWD/rootfs-*` и `$CWD/alpine` не пересобирать. Проба — `/tmp`.
 - Прошивка (`flash_erase`, `nandwrite`, `mkimage`) не часть сборки rootfs.
 - `init.d` скрыт маской `.gitignore` `*.d`. Файлы профиля на диске обязательны.
 

@@ -50,3 +50,6 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# host tool, fetch-apk-static.sh
+apk.static

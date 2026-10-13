@@ -8,7 +8,8 @@
 ### Added
 - Журнал сборки: `log/2026-10-13 сборка образа Alpine.md`. С него начинается работа над образом.
 - `docs/R3_BCP.md` — канон apk и границ, за которые образ не переступает.
-- Вне git, на диске: `apk.static`, корневой `rcS`, `profiles/ant/etc/init.d/rcS`, `rcK`. Прежнее дерево сохранено в `/home/george/r3build.local`.
+- `fetch-apk-static.sh` скачивает `apk-tools-static` с зеркала Alpine. Бинарник `apk.static` в git не входит.
+- Вне git, на диске: корневой `rcS`, `profiles/ant/etc/init.d/rcS`, `rcK`. Прежнее дерево сохранено в `$CWD/r3build.local` (`CWD=/home/{name}`).
 
 ### Changed
 - `alpine-rootfs.sh`: после установки `alpine-keys` пакеты ставятся без `--allow-untrusted`.
