@@ -1,0 +1,7 @@
+#!/bin/sh
+exec >>/var/log/boot.log 2>&1
+echo "=== rcK ==="
+killall dropbear ntpd gminer 2>/dev/null || true
+killall udhcpc 2>/dev/null || true
+umount -a -r 2>/dev/null || true
+echo "=== rcK done ==="

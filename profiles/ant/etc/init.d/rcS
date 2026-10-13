@@ -1,0 +1,120 @@
+#!/bin/sh
+export PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+# корень ramdisk (если уже rw — безвредно)
+mount -o remount,rw / 2>/dev/null
+
+mkdir -p /dev /proc /sys /run /tmp
+mount -t proc     proc     /proc || true
+mount -t sysfs    sysfs    /sys  || true
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || {
+  mount -t tmpfs tmpfs /dev
+  mdev -s
+} || true
+mount -t tmpfs -o mode=0755,nosuid,nodev tmpfs /run 2>/dev/null || true
+mkdir -p /dev/pts /dev/shm /var/log
+mkdir -p /config /sn
+# опциональное из fstab (pts, shm, tmp, run) — если fstab нет, не падает
+mount -a 2>/dev/null || true
+# профиль сборки
+hostname Ant-miner
+# лог в файл СРАЗУ — пока нет консоли
+exec >>/var/log/boot.log 2>&1
+echo "=== rcS $(date 2>/dev/null || echo start) ==="
+export PS4='[$(date +%H:%M:%S)]: '
+set -x
+
+# syslogd (BusyBox) — дублирует в сокет/файл
+syslogd -n -O /var/log/messages &
+sleep 1
+
+# Setup (под свое окружение), из Ant-miner профиль
+# mount -t ubifs -- разделы: config, sn, nvdata
+# ====================================================================
+# 1. МОНТИРОВАНИЕ ДИСКОВ (UBIFS)
+# ====================================================================
+mdev -s
+
+# Привязываем MTD разделы 2, 3 и 4 с лимитом резервных блоков
+ubiattach /dev/ubi_ctrl -m 2 -b 4 2>/dev/null
+ubiattach /dev/ubi_ctrl -m 3 -b 4 2>/dev/null
+
+mdev -s
+
+# Создаем папки и монтируем тома по их именам
+mount -t ubifs ubi0:config   /config   2>/dev/null
+mount -t ubifs ubi1:sn       /sn   2>/dev/null
+
+# ====================================================================
+# 2. ВОССТАНОВЛЕНИЕ КОНФИГУРАЦИИ И ПАРОЛЕЙ
+# ====================================================================
+# Если файлы паролей есть на флешке, привязываем их к системе символическими ссылками
+# Если файлов нет на флешке, сохраняем туда текущие дефолтные (один раз при первой загрузке)
+[ ! -f /config/passwd ] && cp /etc/passwd /config/passwd
+[ ! -f /config/shadow ] && cp /etc/shadow /config/shadow
+[ -f /config/passwd ] && ln -sf /config/passwd /etc/passwd
+[ -f /config/shadow ] && ln -sf /config/shadow /etc/shadow
+
+# Настройка GPIO - индикация состояния (добавьте ваши команды для светодиодов сюда)
+
+# ====================================================================
+# 3. НАСТРОЙКА SSH СЕРВЕРА (DROPBEAR)
+# ====================================================================
+mkdir -p /etc/dropbear
+
+# Принудительно переливаем аппаратную энтропию в системный пул ядра
+# Это вызовет событие "crng init done" в ядре 6.x и разблокирует SSH
+if [ -c /dev/urandom ]; then
+    dd if=/dev/urandom of=/dev/random bs=1 count=32 2>/dev/null
+fi
+# Проверяем, сохранен ли ключ хоста в постоянной памяти /config
+if [ ! -f /config/dropbear_ed25519_host_key ]; then
+    echo "Generating new SSH host key in persistent storage..."
+    dropbearkey -t ed25519 -f /config/dropbear_ed25519_host_key
+fi
+
+# Делаем ссылку из постоянной памяти /config в системную директорию /etc/dropbear
+ln -sf /config/dropbear_ed25519_host_key /etc/dropbear/dropbear_ed25519_host_key
+
+
+# Перенос паролей, индивидуальная конфигурация сохраняется при перезагрузке:
+# [ -f /config/passwd ] && ln -sf /config/passwd /etc/passwd
+# [ -f /config/shadow ] && ln -sf /config/shadow /etc/shadow
+# Настройка GPIO - индикация состояния
+
+ip link set lo up
+ip link set eth0 up 2>/dev/null
+
+NET_CFG="/config/network.conf"
+
+# Если файл конфигурации существует на примонтированном разделе /config
+if [ -f "$NET_CFG" ]; then
+    # Подгружаем переменные из файла (NET_TYPE=static, IP=, GATEWAY=, DNS=)
+    . "$NET_CFG"
+fi
+
+# Проверяем режим работы сети
+if [ "$NET_TYPE" = "static" ] && [ -n "$IP" ] && [ -n "$GATEWAY" ]; then
+    echo "Network: Using Static IP configuration from network.conf"
+    ip addr add "$IP" dev eth0
+    ip route add default via "$GATEWAY"
+    # Записываем DNS (если указан, иначе ставим дефолтный 8.8.8.8)
+    echo "nameserver ${DNS:-8.8.8.8}" > /etc/resolv.conf
+else
+    # Первая загрузка (файла нет) или явно указан режим dhcp
+    echo "Network: First boot or DHCP mode active. Starting udhcpc..."
+    # Флаг -b принудительно отправляет udhcpc в фон, чтобы не блокировать запуск SSH
+    udhcpc -i eth0 -b -p /run/udhcpc.pid -s /usr/share/udhcpc/default.script 2>/dev/null
+fi
+
+# NTP служба
+ntpd -q -n -p pool.ntp.org >/dev/null 2>&1 &
+ntpd -p pool.ntp.org 2>/dev/null &
+
+# SSH сервер
+dropbear -R -B -p 22 &
+
+# приложение
+# gminer &
+
+echo "=== rcS done ==="

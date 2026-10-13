@@ -19,8 +19,9 @@ $APK --arch "$ARCH" --root "$ROOTFS" \
 
 echo "$MIRROR" > "$ROOTFS/etc/apk/repositories"
 
+# alpine-keys already in keys-dir. Further packages must verify.
 $APK --arch "$ARCH" --root "$ROOTFS" \
-  -X "$MIRROR" --keys-dir "$ROOTFS/etc/apk/keys" --allow-untrusted --no-script --no-cache \
+  -X "$MIRROR" --keys-dir "$ROOTFS/etc/apk/keys" --no-script --no-cache \
   add "$@"
 
 du -sh "$ROOTFS"
