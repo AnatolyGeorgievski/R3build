@@ -76,6 +76,13 @@ fi
 # Делаем ссылку из постоянной памяти /config в системную директорию /etc/dropbear
 ln -sf /config/dropbear_ed25519_host_key /etc/dropbear/dropbear_ed25519_host_key
 
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+if [ -f /config/authorized_keys ]; then
+    cp -f /config/authorized_keys /root/.ssh/authorized_keys
+    chmod 600 /root/.ssh/authorized_keys
+fi
+
 
 # Перенос паролей, индивидуальная конфигурация сохраняется при перезагрузке:
 # [ -f /config/passwd ] && ln -sf /config/passwd /etc/passwd
@@ -115,6 +122,6 @@ ntpd -p pool.ntp.org 2>/dev/null &
 dropbear -R -B -p 22 &
 
 # приложение
-# gminer &
+/sbin/netd || true& # gminer &
 
 echo "=== rcS done ==="
