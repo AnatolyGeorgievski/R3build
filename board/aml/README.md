@@ -7,6 +7,8 @@
 
 **Не в git:** приватный SSH-ключ; бинарники USB-boot (~40 МБ `.enc`/`.img`) — остаются в `/home/george/aml_kernel/alpine/usb-boot/` (здесь только `alpine/usb-boot/README.txt` и pubkey).
 
+Коллаборанту «можно ли собрать ядро»: **`ЕСЛИ-СОБРАТЬ-ЯДРО.md`** (да — Image.gz+dtb; нет — mtd4/rootfs/USB без доп. файлов).
+
 ---
 
 # A113D: ядро, DTS и конфигурация
