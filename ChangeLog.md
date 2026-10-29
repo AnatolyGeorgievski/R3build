@@ -1,3 +1,8 @@
+## 2026-10-30
+
+- `board/zynq7000/`: DTS/DTB Zynq7020 + `patches/nand_micron.patch` (как подробности рядом с платой).
+- `board/aml/`: серия A113D (source.lock, patches, dts, configs, README Максима); без private key и без usb-boot blobs.
+
 # ChangeLog
 
 Формат близок к Keep a Changelog. Даты — день работы, не semver.

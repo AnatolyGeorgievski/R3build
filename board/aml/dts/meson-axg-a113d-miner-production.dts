@@ -1,0 +1,205 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/dts-v1/;
+
+#include "meson-axg.dtsi"
+
+/ {
+	model = "MINER_CTRL_BOARD_A113D_V1.1 (production)";
+	compatible = "a113d-devboard,miner-ctrl-board-a113d-v1.1",
+		     "a113d-devboard,miner-control-board",
+		     "amlogic,a113d", "amlogic,meson-axg";
+
+	aliases {
+		serial0 = &uart_AO;
+		serial1 = &uart_A;
+		serial2 = &uart_B;
+		serial3 = &uart_AO_B;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x0 0x0 0x10000000>;
+	};
+
+	vddio_ao18: regulator-vddio-ao18 {
+		compatible = "regulator-fixed";
+		regulator-name = "VDDIO_AO18";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+};
+
+/*
+ * Expose the live-qualified hierarchical IRQ bridge only on the periphs GPIO
+ * chip. AXG provides eight shared GPIO IRQ mux channels. The AO GPIO chip is
+ * deliberately left outside this production contract.
+ */
+&gpio {
+	interrupt-controller;
+	#interrupt-cells = <2>;
+	interrupt-parent = <&gpio_intc>;
+};
+
+&uart_AO {
+	status = "okay";
+	pinctrl-0 = <&uart_ao_a_pins>;
+	pinctrl-names = "default";
+};
+
+&uart_AO_B {
+	status = "okay";
+	pinctrl-0 = <&uart_ao_b_pins>;
+	pinctrl-names = "default";
+};
+
+&uart_A {
+	status = "okay";
+	pinctrl-0 = <&uart_a_pins>, <&uart_a_cts_rts_pins>;
+	pinctrl-names = "default";
+	uart-has-rtscts;
+};
+
+&uart_B {
+	status = "okay";
+	pinctrl-0 = <&uart_b_z_pins>;
+	pinctrl-names = "default";
+};
+
+/*
+ * The offsets are taken from the live vendor 4.9 partition table. The private
+ * Amlogic nenv journal is exposed read-only for the userspace reader; the
+ * remaining FIP/NBBT gaps have no Linux partition. Only boot and nvdata are
+ * writable; the boot-chain partitions and nenv stay guarded.
+ */
+&nfc {
+	status = "okay";
+
+	nand@0 {
+		reg = <0>;
+		/* Use the live-validated NAND STATUS/RB_IO6 ready path. */
+		nand-ecc-mode = "hw";
+		nand-ecc-step-size = <512>;
+		nand-ecc-strength = <8>;
+		amlogic,legacy-nbbt = <20 4>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "bootloader";
+				reg = <0x00000000 0x00200000>;
+				read-only;
+			};
+
+			partition@800000 {
+				label = "tpl";
+				reg = <0x00800000 0x00800000>;
+				read-only;
+			};
+
+			partition@1000000 {
+				label = "misc";
+				reg = <0x01000000 0x00200000>;
+				read-only;
+			};
+
+			partition@1200000 {
+				label = "recovery";
+				reg = <0x01200000 0x01000000>;
+				read-only;
+			};
+
+			partition@2200000 {
+				label = "boot";
+				reg = <0x02200000 0x02000000>;
+			};
+
+			partition@4200000 {
+				label = "config";
+				reg = <0x04200000 0x00500000>;
+				read-only;
+			};
+
+			partition@4700000 {
+				label = "nvdata";
+				reg = <0x04700000 0x0b900000>;
+			};
+
+			/*
+			 * Keep this physically earlier range last in source order. The MTD
+			 * fixed-partition parser registers children in DT order, preserving
+			 * the qualified boot=mtd4 and nvdata=mtd6 userspace ABI while nenv
+			 * becomes mtd7. The journal is not one fixed environment blob and
+			 * intentionally has no NVMEM or u-boot,env compatible.
+			 */
+			partition@300000 {
+				label = "nenv-journal-ro";
+				reg = <0x00300000 0x00100000>;
+				read-only;
+			};
+		};
+	};
+};
+
+&ethmac {
+	status = "okay";
+	pinctrl-0 = <&eth_rmii_y_pins>;
+	pinctrl-names = "default";
+	phy-handle = <&eth_phy0>;
+	phy-mode = "rmii";
+
+	mdio {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		eth_phy0: ethernet-phy@0 {
+			reg = <0>;
+		};
+	};
+};
+
+&i2c_AO {
+	status = "okay";
+	clock-frequency = <100000>;
+	pinctrl-0 = <&i2c_ao_sck_10_pins>, <&i2c_ao_sda_11_pins>;
+	pinctrl-names = "default";
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <100000>;
+	pinctrl-0 = <&i2c1_z_pins>;
+	pinctrl-names = "default";
+};
+
+&pwm_ab {
+	status = "okay";
+	pinctrl-0 = <&pwm_a_a_pins>, <&pwm_b_a_pins>;
+	pinctrl-names = "default";
+};
+
+&saradc {
+	status = "okay";
+	vref-supply = <&vddio_ao18>;
+};
+
+/* USB remains isolated until its board-level power and role wiring is tested. */
+&usb {
+	status = "disabled";
+};
+
+&pcie_phy {
+	status = "disabled";
+};
+
+&ge2d {
+	status = "disabled";
+};

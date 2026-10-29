@@ -1,0 +1,3 @@
+0001-mtd-nand-meson-import-legacy-amlogic-nbbt.patch
+0002-pinctrl-meson-add-gpio-irq-bridge.patch
+0003-dt-bindings-pinctrl-meson-add-gpio-irq-parent.patch

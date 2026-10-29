@@ -1,0 +1,234 @@
+From: A113D Devboard Project <devnull@example.invalid>
+Date: Fri, 7 Aug 2026 00:00:00 +0200
+Subject: [PATCH] pinctrl: meson: add opt-in hierarchical GPIO IRQ support
+
+The Meson GPIO interrupt controller already provides a hierarchical domain
+over the GIC, but the pinctrl GPIO chips do not expose a child IRQ domain.
+Consequently GPIO character-device edge requests fail before reaching the
+Meson GPIO interrupt controller.
+
+Add an opt-in hierarchical gpio_irq_chip.  A GPIO bank enables the
+bridge by declaring itself an interrupt controller and by naming an
+explicit "amlogic,meson-gpio-intc" parent.  Requiring the local
+interrupt-parent property is intentional: Meson root nodes commonly inherit
+the GIC as their
+interrupt parent, which is not the GPIO-to-IRQ mux used here.
+
+Translate GPIO offsets with the existing per-SoC bank IRQ ranges.  Dispose
+the lazily created child mapping when a GPIO descriptor is released so the
+parent driver's limited mux channel is returned as well.
+
+Signed-off-by: A113D Devboard Project <devnull@example.invalid>
+---
+ drivers/pinctrl/meson/Kconfig                 |  10 +
+ drivers/pinctrl/meson/pinctrl-meson.c         | 145 +++++++++++++++++-
+ 2 files changed, 155 insertions(+), 1 deletion(-)
+diff --git a/drivers/pinctrl/meson/Kconfig b/drivers/pinctrl/meson/Kconfig
+--- a/drivers/pinctrl/meson/Kconfig
++++ b/drivers/pinctrl/meson/Kconfig
+@@ -9,6 +9,8 @@ menuconfig PINCTRL_MESON
+ 	select PINCONF
+ 	select GENERIC_PINCONF
+ 	select GPIOLIB
++	select GPIOLIB_IRQCHIP
++	select IRQ_DOMAIN_HIERARCHY
+ 	select OF_GPIO
+ 	select REGMAP_MMIO
+ 
+@@ -16,4 +18,12 @@ if PINCTRL_MESON
+ 
++config PINCTRL_MESON_GPIO_IRQ
++	bool "Hierarchical GPIO interrupt controller support"
++	help
++	  Enable the opt-in child IRQ domain for Meson GPIO banks that
++	  declare an explicit Meson GPIO interrupt controller parent.
++	  This permits GPIO consumers to request edge interrupts through
++	  the standard gpiolib character-device interface.
++
+ config PINCTRL_MESON8
+ 	bool "Meson 8 SoC pinctrl driver"
+ 	depends on ARM
+diff --git a/drivers/pinctrl/meson/pinctrl-meson.c b/drivers/pinctrl/meson/pinctrl-meson.c
+--- a/drivers/pinctrl/meson/pinctrl-meson.c
++++ b/drivers/pinctrl/meson/pinctrl-meson.c
+@@ -37,10 +37,14 @@
+ 
++#include <linux/bitops.h>
+ #include <linux/device.h>
+ #include <linux/gpio/driver.h>
++#include <linux/interrupt.h>
+ #include <linux/init.h>
+ #include <linux/io.h>
++#include <linux/irq.h>
++#include <linux/irqdomain.h>
+ #include <linux/of.h>
+ #include <linux/of_address.h>
+ #include <linux/pinctrl/pinconf-generic.h>
+ #include <linux/pinctrl/pinconf.h>
+ #include <linux/pinctrl/pinctrl.h>
+@@ -597,6 +601,143 @@ static int meson_gpio_get(struct gpio_chip *chip, unsigned gpio)
+ 	return !!(val & BIT(bit));
+ }
+ 
++static void meson_gpio_irq_mask(struct irq_data *data)
++{
++	struct gpio_chip *chip = irq_data_get_irq_chip_data(data);
++
++	irq_chip_mask_parent(data);
++	gpiochip_disable_irq(chip, irqd_to_hwirq(data));
++}
++
++static void meson_gpio_irq_unmask(struct irq_data *data)
++{
++	struct gpio_chip *chip = irq_data_get_irq_chip_data(data);
++
++	gpiochip_enable_irq(chip, irqd_to_hwirq(data));
++	irq_chip_unmask_parent(data);
++}
++
++static const struct irq_chip meson_gpio_irq_chip = {
++	.name = "meson-gpio",
++	.irq_eoi = irq_chip_eoi_parent,
++	.irq_mask = meson_gpio_irq_mask,
++	.irq_unmask = meson_gpio_irq_unmask,
++	.irq_set_type = irq_chip_set_type_parent,
++	.irq_retrigger = irq_chip_retrigger_hierarchy,
++#ifdef CONFIG_SMP
++	.irq_set_affinity = irq_chip_set_affinity_parent,
++#endif
++	.flags = IRQCHIP_IMMUTABLE | IRQCHIP_SET_TYPE_MASKED,
++	GPIOCHIP_IRQ_RESOURCE_HELPERS,
++};
++
++static int meson_gpio_child_to_parent_hwirq(struct gpio_chip *chip,
++					    unsigned int child_hwirq,
++					    unsigned int child_type,
++					    unsigned int *parent_hwirq,
++					    unsigned int *parent_type)
++{
++	struct meson_pinctrl *pc = gpiochip_get_data(chip);
++	const struct meson_bank *bank;
++	int ret;
++
++	ret = meson_get_bank(pc, child_hwirq, &bank);
++	if (ret || bank->irq_first < 0 || bank->irq_last < bank->irq_first)
++		return -EINVAL;
++
++	*parent_hwirq = bank->irq_first + child_hwirq - bank->first;
++	if (*parent_hwirq > bank->irq_last)
++		return -EINVAL;
++
++	*parent_type = child_type;
++	return 0;
++}
++
++static void meson_gpio_irq_init_valid_mask(struct gpio_chip *chip,
++					   unsigned long *valid_mask,
++					   unsigned int ngpios)
++{
++	unsigned int child_hwirq;
++
++	for (child_hwirq = 0; child_hwirq < ngpios; child_hwirq++) {
++		unsigned int parent_hwirq, parent_type;
++
++		if (meson_gpio_child_to_parent_hwirq(chip, child_hwirq,
++						     IRQ_TYPE_NONE,
++						     &parent_hwirq,
++						     &parent_type))
++			clear_bit(child_hwirq, valid_mask);
++	}
++}
++
++static void meson_gpio_free(struct gpio_chip *chip, unsigned int offset)
++{
++	unsigned int virq;
++
++	gpiochip_generic_free(chip, offset);
++
++	if (!chip->irq.domain)
++		return;
++
++	virq = irq_find_mapping(chip->irq.domain, offset);
++	if (virq)
++		irq_dispose_mapping(virq);
++}
++
++static int meson_gpio_irq_setup(struct meson_pinctrl *pc)
++{
++	struct device_node *gpio_np = to_of_node(pc->fwnode);
++	struct gpio_irq_chip *girq = &pc->chip.irq;
++	struct irq_domain *parent_domain;
++	struct device_node *parent_np;
++	bool interrupt_controller;
++	bool explicit_parent;
++	int ret = 0;
++
++	if (!IS_ENABLED(CONFIG_PINCTRL_MESON_GPIO_IRQ))
++		return 0;
++
++	interrupt_controller = of_property_read_bool(gpio_np,
++						     "interrupt-controller");
++	explicit_parent = of_find_property(gpio_np, "interrupt-parent", NULL);
++	if (!interrupt_controller && !explicit_parent)
++		return 0;
++	if (!interrupt_controller || !explicit_parent)
++		return dev_err_probe(pc->dev, -EINVAL,
++			"GPIO IRQ bridge needs interrupt-controller and an explicit interrupt-parent\n");
++
++	parent_np = of_parse_phandle(gpio_np, "interrupt-parent", 0);
++	if (!parent_np)
++		return dev_err_probe(pc->dev, -EINVAL,
++				     "invalid GPIO interrupt-parent\n");
++
++	if (!of_device_is_compatible(parent_np, "amlogic,meson-gpio-intc")) {
++		ret = dev_err_probe(pc->dev, -EINVAL,
++				    "GPIO interrupt-parent is not a Meson GPIO interrupt controller\n");
++		goto out_put_parent;
++	}
++
++	parent_domain = irq_find_host(parent_np);
++	if (!parent_domain) {
++		ret = dev_err_probe(pc->dev, -EPROBE_DEFER,
++				    "Meson GPIO interrupt domain is not ready\n");
++		goto out_put_parent;
++	}
++
++	gpio_irq_chip_set_chip(girq, &meson_gpio_irq_chip);
++	girq->fwnode = pc->fwnode;
++	girq->parent_domain = parent_domain;
++	girq->child_to_parent_hwirq = meson_gpio_child_to_parent_hwirq;
++	girq->populate_parent_alloc_arg = gpiochip_populate_parent_fwspec_twocell;
++	girq->handler = handle_bad_irq;
++	girq->default_type = IRQ_TYPE_NONE;
++	girq->init_valid_mask = meson_gpio_irq_init_valid_mask;
++
++out_put_parent:
++	of_node_put(parent_np);
++	return ret;
++}
++
+ static int meson_gpiolib_register(struct meson_pinctrl *pc)
+ {
+ 	int ret;
+@@ -609,7 +750,7 @@ static int meson_gpiolib_register(struct meson_pinctrl *pc)
+ 	pc->chip.parent = pc->dev;
+ 	pc->chip.fwnode = pc->fwnode;
+ 	pc->chip.request = gpiochip_generic_request;
+-	pc->chip.free = gpiochip_generic_free;
++	pc->chip.free = meson_gpio_free;
+ 	pc->chip.set_config = gpiochip_generic_config;
+ 	pc->chip.get_direction = meson_gpio_get_direction;
+ 	pc->chip.direction_input = meson_gpio_direction_input;
+@@ -622,6 +763,10 @@ static int meson_gpiolib_register(struct meson_pinctrl *pc)
+ 	pc->chip.ngpio = pc->data->num_pins;
+ 	pc->chip.can_sleep = false;
+ 
++	ret = meson_gpio_irq_setup(pc);
++	if (ret)
++		return ret;
++
+ 	ret = gpiochip_add_data(&pc->chip, pc);
+ 	if (ret) {
+ 		dev_err(pc->dev, "can't add gpio chip %s\n",
+-- 
+2.50.1

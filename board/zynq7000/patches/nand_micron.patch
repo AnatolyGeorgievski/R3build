@@ -1,0 +1,16 @@
+--- drivers/mtd/nand/raw/nand_micron.c	2026-09-06 08:56:08.416069541 +0000
++++ patched_nand_micron.c	2026-09-21 11:58:17.941042179 +0000
+@@ -430,11 +430,8 @@
+ 	if  (requirements->strength != 4 && requirements->strength != 8)
+ 		return MICRON_ON_DIE_UNSUPPORTED;
+ 
+-	/* 0x2 means on-die ECC is available. */
+-	if (chip->id.len != 5 ||
+-	    (chip->id.data[4] & MICRON_ID_INTERNAL_ECC_MASK) != 0x2)
+-		return MICRON_ON_DIE_UNSUPPORTED;
+-
++	/* Bypass strict ID length check for Zynq PL35x host controller */
++		return MICRON_ON_DIE_SUPPORTED;
+ 	/*
+ 	 * It seems that there are devices which do not support ECC officially.
+ 	 * At least the MT29F2G08ABAGA / MT29F2G08ABBGA devices supports

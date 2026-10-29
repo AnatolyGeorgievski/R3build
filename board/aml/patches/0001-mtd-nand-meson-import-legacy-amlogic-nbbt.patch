@@ -1,0 +1,312 @@
+Subject: [PATCH] mtd: nand: meson: import the legacy Amlogic NBBT
+
+Opt in through amlogic,legacy-nbbt to read the vendor bad-block journal
+instead of scanning incompatible generic bad-block markers. Select the
+newest ECC-readable record, validate its status table, and populate both
+NAND BBT representations while reserving the journal eraseblocks.
+
+Fail probe if no valid table can be imported. The importer only reads NAND;
+it does not rewrite the vendor journal. Boards without the property keep
+the existing scan path.
+
+---
+--- a/drivers/mtd/nand/raw/meson_nand.c
++++ b/drivers/mtd/nand/raw/meson_nand.c
+@@ -114,6 +114,20 @@
+ 
+ #define PER_INFO_BYTE		8
+ 
++#define MESON_LEGACY_NBBT_MAGIC		"nbbt"
++#define MESON_LEGACY_NBBT_OOB_BYTES	8
++#define MESON_LEGACY_NBBT_READ_RETRIES	3
++#define MESON_LEGACY_NBBT_RETRY_MIN_US	10000
++#define MESON_LEGACY_NBBT_RETRY_MAX_US	12000
++
++#define MESON_LEGACY_NBBT_GOOD		0
++#define MESON_LEGACY_NBBT_WORN		1
++#define MESON_LEGACY_NBBT_FACTORY_BAD	2
++
++#define MESON_BBT_BLOCK_WORN		0x01
++#define MESON_BBT_BLOCK_RESERVED		0x02
++#define MESON_BBT_BLOCK_FACTORY_BAD	0x03
++
+ #define NFC_CMD_RAW_LEN	GENMASK(13, 0)
+ 
+ #define NFC_COLUMN_ADDR_0	0
+@@ -130,6 +144,9 @@
+ 	u32 tbers_max;
+ 	u32 boot_pages;
+ 	u32 boot_page_step;
++	u32 legacy_nbbt_start_block;
++	u32 legacy_nbbt_block_count;
++	bool use_legacy_nbbt;
+ 
+ 	u32 bch_mode;
+ 	u8 *data_buf;
+@@ -1381,6 +1398,228 @@
+ 	.exec_op = meson_nfc_exec_op,
+ };
+ 
++static void meson_nfc_legacy_bbt_mark(u8 *bbt, unsigned int block, u8 status)
++{
++	u8 shift = (block & 0x3) * 2;
++
++	bbt[block >> 2] |= (status & 0x3) << shift;
++}
++
++static int meson_nfc_read_legacy_nbbt_page(struct nand_chip *nand,
++					   unsigned int block,
++					   unsigned int page,
++					   u8 *data, u8 *oob)
++{
++	struct mtd_info *mtd = nand_to_mtd(nand);
++	struct mtd_oob_ops ops = {
++		.mode = MTD_OPS_AUTO_OOB,
++		.len = mtd->writesize,
++		.ooblen = MESON_LEGACY_NBBT_OOB_BYTES,
++		.datbuf = data,
++		.oobbuf = oob,
++	};
++	loff_t offset;
++	int ret;
++
++	offset = (loff_t)block * mtd->erasesize;
++	offset += (loff_t)page * mtd->writesize;
++	ret = mtd_read_oob(mtd, offset, &ops);
++	if (ret < 0 && !mtd_is_bitflip(ret))
++		return ret;
++
++	if (ops.retlen != mtd->writesize ||
++	    ops.oobretlen != MESON_LEGACY_NBBT_OOB_BYTES)
++		return -EIO;
++
++	return 0;
++}
++
++static int meson_nfc_import_legacy_nbbt(struct device *dev,
++					struct meson_nfc_nand_chip *meson_chip)
++{
++	struct nand_chip *nand = &meson_chip->nand;
++	struct mtd_info *mtd = nand_to_mtd(nand);
++	unsigned int pages_per_block = mtd->erasesize / mtd->writesize;
++	unsigned int total_blocks = mtd->size >> nand->phys_erase_shift;
++	unsigned int best_block = 0, best_page = 0, best_timestamp = 0;
++	unsigned int block, page, i, attempt;
++	unsigned int good = 0, worn = 0, factory_bad = 0, reserved = 0;
++	size_t bbt_len = DIV_ROUND_UP(total_blocks, 4);
++	u8 oob[MESON_LEGACY_NBBT_OOB_BYTES];
++	u8 *data, *table, *bbt;
++	bool found = false;
++	int ret = 0;
++
++	if (!total_blocks || total_blocks > mtd->writesize) {
++		dev_err(dev, "legacy nbbt requires a one-page block-status table\n");
++		return -EOPNOTSUPP;
++	}
++
++	if (!meson_chip->legacy_nbbt_block_count ||
++	    meson_chip->legacy_nbbt_start_block >= total_blocks ||
++	    meson_chip->legacy_nbbt_block_count >
++		total_blocks - meson_chip->legacy_nbbt_start_block)
++		return -EINVAL;
++
++	if (mtd->oobavail < MESON_LEGACY_NBBT_OOB_BYTES) {
++		dev_err(dev, "legacy nbbt needs %u user OOB bytes, only %u available\n",
++			MESON_LEGACY_NBBT_OOB_BYTES, mtd->oobavail);
++		return -EINVAL;
++	}
++
++	data = kmalloc(mtd->writesize, GFP_KERNEL);
++	table = kmalloc(total_blocks, GFP_KERNEL);
++	bbt = kzalloc(bbt_len, GFP_KERNEL);
++	if (!data || !table || !bbt) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	for (block = meson_chip->legacy_nbbt_start_block;
++	     block < meson_chip->legacy_nbbt_start_block +
++		     meson_chip->legacy_nbbt_block_count;
++	     block++) {
++		for (page = 0; page < pages_per_block; page++) {
++			unsigned int timestamp;
++
++			for (attempt = 1;
++			     attempt <= MESON_LEGACY_NBBT_READ_RETRIES;
++			     attempt++) {
++				memset(data, 0xa5, mtd->writesize);
++				memset(oob, 0xa5, sizeof(oob));
++				ret = meson_nfc_read_legacy_nbbt_page(nand, block,
++								     page, data,
++								     oob);
++				if (block == meson_chip->legacy_nbbt_start_block &&
++				    page == 0)
++					dev_info(dev,
++						 "legacy nbbt probe attempt %u returned %d, AUTO-OOB %*phN\n",
++						 attempt, ret, (int)sizeof(oob), oob);
++				if (!ret &&
++				    !memcmp(oob, MESON_LEGACY_NBBT_MAGIC, 4))
++					break;
++				if (!ret &&
++				    (block != meson_chip->legacy_nbbt_start_block ||
++				     page != 0))
++					break;
++				if (attempt < MESON_LEGACY_NBBT_READ_RETRIES)
++					usleep_range(MESON_LEGACY_NBBT_RETRY_MIN_US,
++						     MESON_LEGACY_NBBT_RETRY_MAX_US);
++			}
++
++			if (ret ||
++			    memcmp(oob, MESON_LEGACY_NBBT_MAGIC, 4)) {
++				ret = 0;
++				continue;
++			}
++
++			timestamp = (oob[6] | (oob[7] << 8)) & 0x7fff;
++			if (!found || timestamp > best_timestamp ||
++			    (timestamp == best_timestamp &&
++			     (block > best_block ||
++			      (block == best_block && page > best_page)))) {
++				memcpy(table, data, total_blocks);
++				best_block = block;
++				best_page = page;
++				best_timestamp = timestamp;
++				found = true;
++			}
++		}
++	}
++
++	if (!found) {
++		dev_err(dev, "no valid legacy nbbt record in blocks %u..%u\n",
++			meson_chip->legacy_nbbt_start_block,
++			meson_chip->legacy_nbbt_start_block +
++				meson_chip->legacy_nbbt_block_count - 1);
++		ret = -ENODATA;
++		goto out;
++	}
++
++	for (i = 0; i < total_blocks; i++) {
++		switch (table[i]) {
++		case MESON_LEGACY_NBBT_GOOD:
++			good++;
++			break;
++		case MESON_LEGACY_NBBT_WORN:
++			worn++;
++			break;
++		case MESON_LEGACY_NBBT_FACTORY_BAD:
++			factory_bad++;
++			break;
++		default:
++			dev_err(dev, "invalid legacy nbbt status %u for block %u\n",
++				table[i], i);
++			ret = -EBADMSG;
++			goto out;
++		}
++	}
++
++	if (nand->bbt) {
++		dev_err(dev, "legacy nbbt import found an existing raw NAND BBT\n");
++		ret = -EEXIST;
++		goto out;
++	}
++
++	for (i = 0; i < total_blocks; i++) {
++		enum nand_bbt_block_status status;
++
++		switch (table[i]) {
++		case MESON_LEGACY_NBBT_GOOD:
++			status = NAND_BBT_BLOCK_GOOD;
++			break;
++		case MESON_LEGACY_NBBT_WORN:
++			status = NAND_BBT_BLOCK_WORN;
++			meson_nfc_legacy_bbt_mark(bbt, i,
++						   MESON_BBT_BLOCK_WORN);
++			break;
++		case MESON_LEGACY_NBBT_FACTORY_BAD:
++			status = NAND_BBT_BLOCK_FACTORY_BAD;
++			meson_nfc_legacy_bbt_mark(bbt, i,
++						   MESON_BBT_BLOCK_FACTORY_BAD);
++			break;
++		default:
++			unreachable();
++		}
++
++		ret = nanddev_bbt_set_block_status(&nand->base, i, status);
++		if (ret)
++			goto out;
++	}
++
++	for (i = meson_chip->legacy_nbbt_start_block;
++	     i < meson_chip->legacy_nbbt_start_block +
++		     meson_chip->legacy_nbbt_block_count;
++	     i++) {
++		if (table[i] != MESON_LEGACY_NBBT_GOOD)
++			continue;
++
++		meson_nfc_legacy_bbt_mark(bbt, i, MESON_BBT_BLOCK_RESERVED);
++		ret = nanddev_bbt_set_block_status(&nand->base, i,
++						   NAND_BBT_BLOCK_RESERVED);
++		if (ret)
++			goto out;
++		reserved++;
++		good--;
++	}
++
++	nand->bbt = bbt;
++	bbt = NULL;
++	mtd->ecc_stats.badblocks = worn + factory_bad;
++	mtd->ecc_stats.bbtblocks = reserved;
++
++	dev_info(dev,
++		 "legacy nbbt block %u page %u timestamp %u: %u good, %u worn, %u factory bad, %u reserved\n",
++		 best_block, best_page, best_timestamp, good, worn, factory_bad,
++		 reserved);
++
++out:
++	kfree(bbt);
++	kfree(table);
++	kfree(data);
++	return ret;
++}
++
+ static int
+ meson_nfc_nand_chip_init(struct device *dev,
+ 			 struct meson_nfc *nfc, struct device_node *np)
+@@ -1389,6 +1628,7 @@
+ 	struct nand_chip *nand;
+ 	struct mtd_info *mtd;
+ 	int ret, i;
++	u32 legacy_nbbt[2];
+ 	u32 tmp, nsels;
+ 	u32 nand_rb_val = 0;
+ 
+@@ -1439,10 +1679,29 @@
+ 	if (nand_rb_val)
+ 		return -EINVAL;
+ 
++	ret = of_property_read_u32_array(np, "amlogic,legacy-nbbt",
++					 legacy_nbbt, ARRAY_SIZE(legacy_nbbt));
++	if (!ret) {
++		meson_chip->legacy_nbbt_start_block = legacy_nbbt[0];
++		meson_chip->legacy_nbbt_block_count = legacy_nbbt[1];
++		meson_chip->use_legacy_nbbt = true;
++		nand->options |= NAND_SKIP_BBTSCAN | NAND_NO_BBM_QUIRK;
++	} else if (ret != -EINVAL) {
++		return ret;
++	}
++
+ 	ret = nand_scan(nand, nsels);
+ 	if (ret)
+ 		return ret;
+ 
++	if (meson_chip->use_legacy_nbbt) {
++		ret = meson_nfc_import_legacy_nbbt(dev, meson_chip);
++		if (ret) {
++			nand_cleanup(nand);
++			return ret;
++		}
++	}
++
+ 	if (nand->options & NAND_IS_BOOT_MEDIUM) {
+ 		ret = of_property_read_u32(np, "amlogic,boot-pages",
+ 					   &meson_chip->boot_pages);

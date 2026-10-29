@@ -1,0 +1,45 @@
+From: A113D Devboard Project <devnull@example.invalid>
+Date: Fri, 7 Aug 2026 00:00:01 +0200
+Subject: [PATCH] dt-bindings: pinctrl: allow Meson GPIO IRQ domains
+
+Describe the optional properties used when a Meson GPIO bank is also an
+interrupt controller.  Require an explicit interrupt parent so a bank
+cannot accidentally inherit the SoC root GIC instead of the Meson GPIO
+interrupt mux.
+
+Signed-off-by: A113D Devboard Project <devnull@example.invalid>
+---
+ .../pinctrl/amlogic,meson-pinctrl-common.yaml | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/pinctrl/amlogic,meson-pinctrl-common.yaml b/Documentation/devicetree/bindings/pinctrl/amlogic,meson-pinctrl-common.yaml
+--- a/Documentation/devicetree/bindings/pinctrl/amlogic,meson-pinctrl-common.yaml
++++ b/Documentation/devicetree/bindings/pinctrl/amlogic,meson-pinctrl-common.yaml
+@@ -43,6 +43,25 @@ $defs:
+       gpio-ranges:
+         maxItems: 1
+ 
++      interrupt-controller: true
++
++      "#interrupt-cells":
++        const: 2
++        description:
++          The first cell is the GPIO offset and the second cell contains the
++          interrupt trigger type.
++
++      interrupt-parent: true
++
++    dependencies:
++      interrupt-controller:
++        - "#interrupt-cells"
++        - interrupt-parent
++      "#interrupt-cells":
++        - interrupt-controller
++      interrupt-parent:
++        - interrupt-controller
++
+     patternProperties:
+       "^.+-hog(-[0-9]+)?$":
+         type: object
+-- 
+2.50.1
