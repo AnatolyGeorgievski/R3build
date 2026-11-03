@@ -1,0 +1,7 @@
+BOARD_ID=rb2-1
+DTB_BASE=qrb4210-rb2
+origin=u-boot/linux qcom dts trees
+dts: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/qrb4210-rb2.dts
+dtb: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/qrb4210-rb2.dtb
+STATUS=saved
+sha256_dtb=d337ec4b8a782998aae74a5e0f96818dd5fa80afe7c04590af6f9cc8384501eb

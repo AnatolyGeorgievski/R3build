@@ -1,0 +1,5 @@
+BOARD_ID=ifc6410-1
+DTB_BASE=apq8064-ifc6410
+origin=u-boot/linux qcom dts trees
+STATUS=missing — положить apq8064-ifc6410.dts/.dtb в /home/george/r3build/board/qcom/ifc6410-1
+candidates=apq8064-ifc6410

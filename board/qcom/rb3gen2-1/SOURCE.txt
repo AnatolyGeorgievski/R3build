@@ -1,0 +1,7 @@
+BOARD_ID=rb3gen2-1
+DTB_BASE=qcs6490-rb3gen2
+origin=u-boot/linux qcom dts trees
+dts: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/qcs6490-rb3gen2.dts
+dtb: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/qcs6490-rb3gen2.dtb
+STATUS=saved
+sha256_dtb=8d31b5b65297bc9000f8879572e7df6b2c312bccc8f4651e37fe474319eb7409

@@ -1,0 +1,5 @@
+BOARD_ID=rb5gen2-1
+DTB_BASE=qcs8550-rb5gen2
+origin=u-boot/linux qcom dts trees
+dts: /tmp/qcom-linux/arch/arm64/boot/dts/qcom/qcs8550-rb5gen2.dts
+STATUS=saved-dts-only — dtb собрать (dtc) или взять из build

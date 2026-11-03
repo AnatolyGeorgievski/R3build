@@ -1,0 +1,7 @@
+BOARD_ID=sdm845-hdk-1
+DTB_BASE=sdm845-mtp
+origin=u-boot/linux qcom dts trees
+dts: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/sdm845-mtp.dts
+dtb: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/sdm845-mtp.dtb
+STATUS=saved
+sha256_dtb=ed76046c7568c2ca16678c35e174cc2aaafd3e586ede308ff2c6f6106714d333

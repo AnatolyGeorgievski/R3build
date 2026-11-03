@@ -1,0 +1,7 @@
+BOARD_ID=sm8150-hdk-1
+DTB_BASE=sm8150-hdk
+origin=u-boot/linux qcom dts trees
+dts: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/sm8150-hdk.dts
+dtb: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/sm8150-hdk.dtb
+STATUS=saved
+sha256_dtb=20ed95b32a769132edf39fe3fdb78b323d369d61cdc7b540b11476b4545c87df

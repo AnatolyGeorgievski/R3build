@@ -1,0 +1,12 @@
+DTB from U-Boot tree after rb1 build (same as Mitya packs):
+  source: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom
+  copied: /home/george/r3build/out/dtb
+qrb2210-rb1.dtb 44232
+qrb5165-rb5.dtb 131752
+qrb4210-rb2.dtb 67080
+qcs6490-rb3gen2.dtb 129856
+sda660-inforce-ifc6560.dtb 50376
+sm8450-hdk.dtb 119616
+sm8350-hdk.dtb 85432
+sm8150-hdk.dtb 95440
+sdm845-mtp.dtb 105488

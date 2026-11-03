@@ -1,0 +1,7 @@
+BOARD_ID=db410c-1
+DTB_BASE=apq8016-sbc
+origin=u-boot/linux qcom dts trees
+dts: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/apq8016-sbc.dts
+dtb: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/apq8016-sbc.dtb
+STATUS=saved
+sha256_dtb=f97572c1ce0a381c28d8d347c09794bba77df1fbd5785f2bd05f0d7a0f8711f8

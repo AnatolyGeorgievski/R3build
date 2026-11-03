@@ -1,0 +1,7 @@
+BOARD_ID=rb3-1
+DTB_BASE=sdm845-db845c
+origin=u-boot/linux qcom dts trees
+dts: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/sdm845-db845c.dts
+dtb: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/sdm845-db845c.dtb
+STATUS=saved
+sha256_dtb=2c6152f56287f8b99b905d3fa3afe676ccbabee8ff4eb102d94e4dfb68265a95

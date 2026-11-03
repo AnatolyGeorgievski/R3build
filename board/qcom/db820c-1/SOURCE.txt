@@ -1,0 +1,7 @@
+BOARD_ID=db820c-1
+DTB_BASE=apq8096-db820c
+origin=u-boot/linux qcom dts trees
+dts: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/apq8096-db820c.dts
+dtb: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/apq8096-db820c.dtb
+STATUS=saved
+sha256_dtb=2b073483788cee1b98e23e85f3888b568bdf0fdc5eb891c85dc68e2a8a231e70

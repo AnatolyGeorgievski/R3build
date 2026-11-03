@@ -1,0 +1,7 @@
+BOARD_ID=openq835-1
+DTB_BASE=msm8998-mtp
+origin=u-boot/linux qcom dts trees
+dts: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/msm8998-mtp.dts
+dtb: /tmp/r3-rb1-build/u-boot/dts/upstream/src/arm64/qcom/msm8998-mtp.dtb
+STATUS=saved
+sha256_dtb=6280bb2c6a135cef8d75b39dbbdb7814d80aa76359ab791cc439f04090c7c3db

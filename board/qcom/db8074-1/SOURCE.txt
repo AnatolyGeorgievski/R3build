@@ -1,0 +1,5 @@
+BOARD_ID=db8074-1
+DTB_BASE=apq8074-dragonboard
+origin=u-boot/linux qcom dts trees
+STATUS=missing — положить apq8074-dragonboard.dts/.dtb в /home/george/r3build/board/qcom/db8074-1
+candidates=apq8074-dragonboard

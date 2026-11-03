@@ -1,0 +1,114 @@
+[
+  {
+    "board_id": "rb1-1",
+    "base": "qrb2210-rb1",
+    "dts": "qrb2210-rb1.dts",
+    "dtb": "qrb2210-rb1.dtb",
+    "status": "saved"
+  },
+  {
+    "board_id": "rb5-1",
+    "base": "qrb5165-rb5",
+    "dts": "qrb5165-rb5.dts",
+    "dtb": "qrb5165-rb5.dtb",
+    "status": "saved"
+  },
+  {
+    "board_id": "rb2-1",
+    "base": "qrb4210-rb2",
+    "dts": "qrb4210-rb2.dts",
+    "dtb": "qrb4210-rb2.dtb",
+    "status": "saved"
+  },
+  {
+    "board_id": "rb3gen2-1",
+    "base": "qcs6490-rb3gen2",
+    "dts": "qcs6490-rb3gen2.dts",
+    "dtb": "qcs6490-rb3gen2.dtb",
+    "status": "saved"
+  },
+  {
+    "board_id": "rb3-1",
+    "base": "sdm845-db845c",
+    "dts": "sdm845-db845c.dts",
+    "dtb": "sdm845-db845c.dtb",
+    "status": "saved"
+  },
+  {
+    "board_id": "ifc6560-1",
+    "base": "sda660-inforce-ifc6560",
+    "dts": "sda660-inforce-ifc6560.dts",
+    "dtb": "sda660-inforce-ifc6560.dtb",
+    "status": "saved"
+  },
+  {
+    "board_id": "ifc6410-1",
+    "base": null,
+    "dts": null,
+    "dtb": null,
+    "status": "missing"
+  },
+  {
+    "board_id": "db410c-1",
+    "base": "apq8016-sbc",
+    "dts": "apq8016-sbc.dts",
+    "dtb": "apq8016-sbc.dtb",
+    "status": "saved"
+  },
+  {
+    "board_id": "db820c-1",
+    "base": "apq8096-db820c",
+    "dts": "apq8096-db820c.dts",
+    "dtb": "apq8096-db820c.dtb",
+    "status": "saved"
+  },
+  {
+    "board_id": "db8074-1",
+    "base": null,
+    "dts": null,
+    "dtb": null,
+    "status": "missing"
+  },
+  {
+    "board_id": "sdm845-hdk-1",
+    "base": "sdm845-mtp",
+    "dts": "sdm845-mtp.dts",
+    "dtb": "sdm845-mtp.dtb",
+    "status": "saved"
+  },
+  {
+    "board_id": "sm8150-hdk-1",
+    "base": "sm8150-hdk",
+    "dts": "sm8150-hdk.dts",
+    "dtb": "sm8150-hdk.dtb",
+    "status": "saved"
+  },
+  {
+    "board_id": "sm8350-hdk-1",
+    "base": "sm8350-hdk",
+    "dts": "sm8350-hdk.dts",
+    "dtb": "sm8350-hdk.dtb",
+    "status": "saved"
+  },
+  {
+    "board_id": "sm8450-hdk-1",
+    "base": "sm8450-hdk",
+    "dts": "sm8450-hdk.dts",
+    "dtb": "sm8450-hdk.dtb",
+    "status": "saved"
+  },
+  {
+    "board_id": "openq835-1",
+    "base": "msm8998-mtp",
+    "dts": "msm8998-mtp.dts",
+    "dtb": "msm8998-mtp.dtb",
+    "status": "saved"
+  },
+  {
+    "board_id": "rb5gen2-1",
+    "base": "qrb2210",
+    "dts": "qrb2210-rb1.dts",
+    "dtb": "qrb2210-rb1.dtb",
+    "status": "saved"
+  }
+]
