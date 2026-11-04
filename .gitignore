@@ -61,4 +61,5 @@ out/ramdisk_*.cpio.gz
 out/kernel/
 out/work/
 out/dtb/
+out/rpi/
 !out/.gitkeep

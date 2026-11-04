@@ -8,6 +8,7 @@
 |---|---|
 | [docs/R3_DECLARATION.md](docs/R3_DECLARATION.md) | совместная работа · этика netd · лицензия · контракты |
 | [docs/R3_ECOSYSTEM.md](docs/R3_ECOSYSTEM.md) | экосистема Ring-3 (открыто / private / закрыто) |
+| [docs/R3_STAND.md](docs/R3_STAND.md) | **концепция стенда** · полка отладки · netboot как fastboot · электрощит |
 | [src/init/README.md](src/init/README.md) | роль `net_init` · SBC ramdisk / сервер без скриптов загрузки |
 
 Связка: **R3-lib** (канон ABI) · **R3-net** (netd, **private**) · **r3build** (этот репозиторий).  
@@ -32,8 +33,11 @@
 *   Предназначен для одноплатных компьютеров с архитектурой `armhf` / `armv7` / `aarh64` / `riscv64` / `x86_64`.
 *   `alpine-rootfs.sh` — Основной сценарий сборки базы rootfs.
 *   `install-init.sh` — Скрипт установки кастомной инициализации.
-*   `profiles/` — Профили под целевые устройства (например, `ant`, `hurd` , `swarn`)
-*   `docs/` — норматив: `R3_DECLARATION.md`, `R3_ECOSYSTEM.md`; BCP и прочее.
+*   `profiles/` — дерево rootfs по типу прошивки (сейчас: `ant`; `herd`/`swarm` — задуманы в `install-init.sh`)
+*   `board/` — железо и референс стендов (`bb`, `zynq7000`, `aml`, `qcom`, `cv18x`, `radxa`, `orange`, `rpi`)
+*   `src/init/` — `net_init` / zcip для ramdisk (не legacy BusyBox init)
+*   `scripts/` — ramdisk, Android `boot.img`, сохранение dtb слотов umbar
+*   `docs/` — норматив: `R3_DECLARATION.md`, `R3_ECOSYSTEM.md`, **`R3_STAND.md`** (стенд); BCP и прочее.
 
 ## 🚀 Быстрый старт (Пример сборки)
 
@@ -71,25 +75,51 @@ BOOT.bin (загрузка с SD/QSPI/NAND/NOR):
 ```
 
 ## ⚙️ Слияние профилей и аппаратура плат
+
+Профиль ≠ плата: `profiles/` даёт дерево в rootfs; `board/` — dts/dtb, conf загрузчика, патчи ядра.
+Пакеты apk задаются аргументами `alpine-rootfs.sh`, не файлом `packages` в профиле.
+
 ```
-├── repo/${ARCH}/             # Репозиторий прикладных программ: bmu, gminer, godminer
-├── profiles/                 # К какому "типу" относится прошивка
-│   ├── ant/
-│   │   └── packages          # dropbear, mtd-utils, ca-certificates, bmu-parser
-│   └── herd/
-│       └── packages          # dropbear, mtd-utils, ca-certificates, R3-mcp
-└── board/                    # Железо (файлы fstab, dts, kernel)
-    ├── bb/                   # TI Sitara   (armhf) -> console=ttyO0
-    ├── zynq7000/             # Xilinx Zynq (armv7) -> console=ttyPS0
-    ├── aml/                  # Amlogic   (aarch64) -> console=ttyAML0
-    └── cv18x/                # CVtech    (aarch64) -> console=ttyS0
+├── profiles/                 # тип прошивки → файлы в rootfs
+│   └── ant/                  # единственный живой профиль
+│       ├── init              # точка входа (legacy BusyBox-контур)
+│       ├── etc/              # inittab, fstab, passwd, init.d/rcS|rcK, …
+│       ├── config/           # config.json, mcp.json
+│       └── schema/           # schema/config.json
+├── src/init/                 # net_init + zcip → /init в ramdisk (цель)
+├── scripts/                  # mk-*-ramdisk, mk-android-bootimg, save-board-dtb
+└── board/                    # железо + референс стендов (см. board/README.md)
+    ├── bb/                   # TI Sitara / BeagleBone (armhf) console=ttyO0
+    ├── zynq7000/             # Xilinx Zynq (armv7)  console=ttyPS0
+    ├── aml/                  # Amlogic A113D (a64)  console=ttyAML0
+    ├── qcom/                 # слоты umbar: dts/dtb + *.conf → boot.img
+    │   ├── DTB-INDEX.md
+    │   ├── rb1.conf …
+    │   └── <BOARD_ID>/       # *.dts *.dtb SOURCE.txt
+    ├── cv18x/                # CVtech (aarch64) console=ttyS0
+    ├── radxa/                # стенд: ROCK 5C | 2F | 3B
+    ├── orange/               # стенд: Orange Pi
+    └── rpi/                  # стенд: Raspberry Pi (gpio/MCP)
 ```
 
-## 🛠️ Доступные профили пакетов
+**Стенд:** канон — [`docs/R3_STAND.md`](docs/R3_STAND.md). Старт с готового SBC (radxa / orange / rpi) → payload с host (TFTP/fastboot-подобно) → `/init`, netd, mcp, gpio. Своя плата — не обязательный вход.
 
-Система сборки поддерживает модульные профили для разных задач. 
-Например, профиль `ant` автоматически включает в себя:
-* `dropbear` и `dropbear-scp` — легковесный SSH-доступ.
-* `ca-certificates` — корневые сертификаты для доверенного подключения к репозиториям.
-* `mtd-utils-flash` и `mtd-utils-ubi` — набор утилит для обновления прошивки (NAND/NOR).
+| сейчас | позже |
+|---|---|
+| карта слотов + `ant` + qcom/aml/zynq; Pi TFTP **netd-rpi**; канон стенда в `docs/R3_STAND.md` | smoke gpio на живой Pi; dts radxa·orange; bb/cv18x по железу |
+| umbar: Linux+`net_init` stay (навык) | eth→MCP на rb1 — по слову; NPU-артефакт с Максом |
+
+Подробнее: [`board/README.md`](board/README.md) § «Сейчас / позже».
+
+`bb/` и `cv18x/` могут быть пусты в git — слоты не списывать; dts/скрипты не выдумывать.
+`herd` / `swarm` — имена в usage `install-init.sh`; каталогов пока нет.
+`repo/${ARCH}/` — прикладные пакеты вне apk; каталога в репо сейчас нет.
+
+## 🛠️ Профиль `ant` и пакеты apk
+
+Профиль копирует файлы (`install-init.sh` / `mk-netd-ramdisk.sh`). Набор apk — отдельно, при сборке rootfs, например:
+
+* `dropbear`, `dropbear-scp` — SSH
+* `ca-certificates` — доверие к репозиториям
+* `mtd-utils-flash`, `mtd-utils-ubi` — NAND/NOR (ant / Zynq / AML)
 
