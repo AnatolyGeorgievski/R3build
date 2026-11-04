@@ -10,11 +10,15 @@
 #include <sys/syscall.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <sys/time.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/if.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
+#include <poll.h>
 #include "zcip.h"
 
 #ifndef INIT_PARSE_TEST
@@ -339,23 +343,204 @@ static int dump_links(void)
 	return got;
 }
 
+/* Имя первого не-lo iface: eth, en, usb. */
+static int pick_iface(char *out, int n)
+{
+	int fd;
+	char buf[4096], name[32];
+	struct {
+		struct nlmsghdr nh;
+		struct ifinfomsg ifi;
+	} req;
+	fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
+	if (fd < 0) return -1;
+	memset(&req, 0, sizeof req);
+	req.nh.nlmsg_len = sizeof req;
+	req.nh.nlmsg_type = RTM_GETLINK;
+	req.nh.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+	req.nh.nlmsg_seq = 1;
+	req.ifi.ifi_family = AF_UNSPEC;
+	if (send(fd, &req, sizeof req, 0) < 0) { close(fd); return -1; }
+	for (;;) {
+		struct nlmsghdr *nh;
+		int len, rest;
+		struct timeval tv;
+		fd_set rfds;
+		tv.tv_sec = 0;
+		tv.tv_usec = 200000;
+		FD_ZERO(&rfds);
+		FD_SET(fd, &rfds);
+		if (select(fd + 1, &rfds, 0, 0, &tv) <= 0) break;
+		len = (int)recv(fd, buf, sizeof buf, 0);
+		if (len <= 0) break;
+		rest = len;
+		for (nh = (struct nlmsghdr *)buf; NLMSG_OK(nh, rest); nh = NLMSG_NEXT(nh, rest)) {
+			struct ifinfomsg *ifi;
+			struct rtattr *rta;
+			int alen;
+			if (nh->nlmsg_type == NLMSG_DONE) { close(fd); return -1; }
+			if (nh->nlmsg_type != RTM_NEWLINK) continue;
+			ifi = NLMSG_DATA(nh);
+			alen = nh->nlmsg_len - NLMSG_LENGTH(sizeof *ifi);
+			name[0] = 0;
+			for (rta = IFLA_RTA(ifi); RTA_OK(rta, alen); rta = RTA_NEXT(rta, alen)) {
+				if (rta->rta_type != IFLA_IFNAME) continue;
+				snprintf(name, sizeof name, "%s", (char *)RTA_DATA(rta));
+			}
+			if (!name[0] || strcmp(name, "lo") == 0) continue;
+			/* USB-LAN / бортовой eth; wlan пока не трогаем без fw+модулей */
+			if (strncmp(name, "eth", 3) == 0 || strncmp(name, "en", 2) == 0
+			    || strncmp(name, "usb", 3) == 0) {
+				snprintf(out, n, "%s", name);
+				close(fd);
+				return 0;
+			}
+		}
+	}
+	close(fd);
+	return -1;
+}
+
 static void see_links(void)
 {
 	int i;
-	for (i = 0; i < 15; i++) {
-		if (dump_links()) return;
-		usleep(200000);
+	char ifc[32], line[64];
+	/* USB eth часто позже 3с — ждём до ~20с */
+	for (i = 0; i < 80; i++) {
+		dump_links();
+		if (pick_iface(ifc, sizeof ifc) == 0) {
+			snprintf(line, sizeof line, "init: pick %s", ifc);
+			say(line);
+			return;
+		}
+		usleep(250000);
 	}
 	say("init: link none");
 }
 
-
-/* Слушает MCP на link-local. Дочерний процесс остаётся после exec. */
-static void mcp_serve(uint32_t ip)
+static unsigned short icmp_cksum(const void *data, int len)
 {
-	int fd, one, c;
+	const unsigned short *p = data;
+	unsigned long sum = 0;
+	while (len > 1) { sum += *p++; len -= 2; }
+	if (len) sum += *(const unsigned char *)p;
+	sum = (sum >> 16) + (sum & 0xffff);
+	sum += (sum >> 16);
+	return (unsigned short)~sum;
+}
+
+/* Один ICMP echo; ответ "ok ms=N" / "fail". */
+static void mcp_ping(int c, const char *target)
+{
+	int s, n;
+	struct sockaddr_in dst, from;
+	socklen_t fl = sizeof from;
+	char pkt[64], rbuf[128], out[96];
+	struct icmphdr *ih;
+	struct timeval tv0, tv1;
+	long ms;
+	memset(&dst, 0, sizeof dst);
+	dst.sin_family = AF_INET;
+	if (inet_pton(AF_INET, target, &dst.sin_addr) != 1) {
+		write(c, "fail bad-ip\n", 12);
+		return;
+	}
+	s = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+	if (s < 0) {
+		write(c, "fail raw\n", 9);
+		return;
+	}
+	memset(pkt, 0, sizeof pkt);
+	ih = (struct icmphdr *)pkt;
+	ih->type = ICMP_ECHO;
+	ih->un.echo.id = htons(0x4e54);
+	ih->un.echo.sequence = htons(1);
+	ih->checksum = icmp_cksum(pkt, 8);
+	gettimeofday(&tv0, 0);
+	if (sendto(s, pkt, 8, 0, (struct sockaddr *)&dst, sizeof dst) < 0) {
+		close(s);
+		write(c, "fail send\n", 10);
+		return;
+	}
+	{
+		struct pollfd p = { .fd = s, .events = POLLIN };
+		if (poll(&p, 1, 1500) <= 0) {
+			close(s);
+			write(c, "fail timeout\n", 13);
+			return;
+		}
+	}
+	n = (int)recvfrom(s, rbuf, sizeof rbuf, 0, (struct sockaddr *)&from, &fl);
+	close(s);
+	gettimeofday(&tv1, 0);
+	if (n < (int)(sizeof(struct iphdr) + 8)) {
+		write(c, "fail short\n", 11);
+		return;
+	}
+	ms = (tv1.tv_sec - tv0.tv_sec) * 1000L + (tv1.tv_usec - tv0.tv_usec) / 1000L;
+	n = snprintf(out, sizeof out, "ok ms=%ld\n", ms);
+	write(c, out, (size_t)n);
+}
+
+/* Тонкий mDNS A-анонс на 224.0.0.251:5353 (имя board.local). */
+static void mdns_announce(uint32_t ip_hbo, const char *ifname)
+{
+	int fd, one = 1;
+	struct sockaddr_in a, dst;
+	unsigned char pdu[128];
+	int n = 0;
+	const char *host = "r3board";
+	char line[96];
+	struct ip_mreq m;
+	(void)ifname;
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (fd < 0) return;
+	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
+	memset(&a, 0, sizeof a);
+	a.sin_family = AF_INET;
+	a.sin_port = htons(5353);
+	a.sin_addr.s_addr = htonl(INADDR_ANY);
+	if (bind(fd, (struct sockaddr *)&a, sizeof a) != 0) { close(fd); return; }
+	memset(&m, 0, sizeof m);
+	m.imr_multiaddr.s_addr = inet_addr("224.0.0.251");
+	m.imr_interface.s_addr = htonl(ip_hbo);
+	setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &m, sizeof m);
+	setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, &m.imr_interface, sizeof m.imr_interface);
+	/* header */
+	pdu[n++] = 0; pdu[n++] = 0; /* id */
+	pdu[n++] = 0x84; pdu[n++] = 0; /* response, authoritative */
+	pdu[n++] = 0; pdu[n++] = 0; /* qd */
+	pdu[n++] = 0; pdu[n++] = 1; /* an=1 */
+	pdu[n++] = 0; pdu[n++] = 0; pdu[n++] = 0; pdu[n++] = 0;
+	pdu[n++] = (unsigned char)strlen(host);
+	memcpy(pdu + n, host, strlen(host)); n += (int)strlen(host);
+	pdu[n++] = 5; memcpy(pdu + n, "local", 5); n += 5;
+	pdu[n++] = 0;
+	pdu[n++] = 0; pdu[n++] = 1; /* A */
+	pdu[n++] = 0; pdu[n++] = 1; /* IN */
+	pdu[n++] = 0; pdu[n++] = 0; pdu[n++] = 0; pdu[n++] = 120; /* ttl */
+	pdu[n++] = 0; pdu[n++] = 4;
+	pdu[n++] = (ip_hbo >> 24) & 255;
+	pdu[n++] = (ip_hbo >> 16) & 255;
+	pdu[n++] = (ip_hbo >> 8) & 255;
+	pdu[n++] = ip_hbo & 255;
+	memset(&dst, 0, sizeof dst);
+	dst.sin_family = AF_INET;
+	dst.sin_port = htons(5353);
+	dst.sin_addr.s_addr = inet_addr("224.0.0.251");
+	sendto(fd, pdu, (size_t)n, 0, (struct sockaddr *)&dst, sizeof dst);
+	snprintf(line, sizeof line, "init: mdns r3board.local");
+	say(line);
+	/* держим fd в ребёнке mcp — закрываем здесь; анонс одноразовый */
+	close(fd);
+}
+
+/* Слушает MCP на link-local. Команды: addr | ifaces | ping <ip> | peers */
+static void mcp_serve(uint32_t ip, const char *ifname)
+{
+	int fd, one, c, n;
 	struct sockaddr_in a;
-	char line[128];
+	char line[128], req[160], ans[192];
 	fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (fd < 0) {
 		snprintf(line, sizeof line, "init: mcp socket: %s", strerror(errno));
@@ -373,7 +558,7 @@ static void mcp_serve(uint32_t ip)
 		say(line);
 		_exit(1);
 	}
-	if (listen(fd, 1) != 0) {
+	if (listen(fd, 4) != 0) {
 		snprintf(line, sizeof line, "init: mcp listen: %s", strerror(errno));
 		say(line);
 		_exit(1);
@@ -381,10 +566,29 @@ static void mcp_serve(uint32_t ip)
 	snprintf(line, sizeof line, "init: mcp %u.%u.%u.%u:8443",
 		(ip >> 24) & 255, (ip >> 16) & 255, (ip >> 8) & 255, ip & 255);
 	say(line);
+	mdns_announce(ip, ifname);
 	for (;;) {
 		c = accept(fd, 0, 0);
 		if (c < 0) continue;
 		say("init: mcp peer");
+		n = (int)recv(c, req, sizeof req - 1, 0);
+		if (n <= 0) { close(c); continue; }
+		req[n] = 0;
+		while (n > 0 && (req[n - 1] == '\n' || req[n - 1] == '\r')) req[--n] = 0;
+		if (strcmp(req, "addr") == 0) {
+			n = snprintf(ans, sizeof ans, "%u.%u.%u.%u %s\n",
+				(ip >> 24) & 255, (ip >> 16) & 255, (ip >> 8) & 255, ip & 255, ifname);
+			write(c, ans, (size_t)n);
+		} else if (strcmp(req, "ifaces") == 0) {
+			dump_links();
+			write(c, "ok\n", 3);
+		} else if (strncmp(req, "ping ", 5) == 0) {
+			mcp_ping(c, req + 5);
+		} else if (strcmp(req, "peers") == 0) {
+			write(c, "peers: use mdns r3board.local / arp 169.254/16\n", 47);
+		} else {
+			write(c, "cmds: addr|ifaces|ping <ip>|peers\n", 34);
+		}
 		close(c);
 	}
 }
@@ -393,8 +597,14 @@ static void see_mcp(void)
 {
 	uint32_t ip;
 	pid_t pid;
-	char line[128];
-	ip = zcip_run("eth0", 0);
+	char line[128], ifc[32];
+	if (pick_iface(ifc, sizeof ifc) != 0) {
+		say("init: mcp none");
+		return;
+	}
+	snprintf(line, sizeof line, "init: zcip %s", ifc);
+	say(line);
+	ip = zcip_run(ifc, 0);
 	if (!ip) {
 		say("init: mcp none");
 		return;
@@ -408,7 +618,7 @@ static void see_mcp(void)
 		say(line);
 		return;
 	}
-	if (pid == 0) mcp_serve(ip);
+	if (pid == 0) mcp_serve(ip, ifc);
 }
 
 /* Свой run-init. rootfs не принимает pivot_root: корень абсолютный.
