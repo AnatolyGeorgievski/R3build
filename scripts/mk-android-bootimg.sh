@@ -51,6 +51,10 @@ fi
 # ABOOT_BASE: [[george]] — не важен; пусто → 0x0
 ABOOT_BASE="${ABOOT_BASE:-0x0}"
 [[ -n "${ABOOT_PAGESIZE:-}" ]] || ask "ABOOT_PAGESIZE пуст"
+# внешний override (alpine qcom без stay и т.п.)
+if [[ -n "${CMDLINE_OVERRIDE:-}" ]]; then
+  CMDLINE="${CMDLINE_OVERRIDE}"
+fi
 [[ -n "${CMDLINE:-}" ]] || ask "CMDLINE пуст — что передать ядру/netd?"
 [[ -n "${DTB_NAME:-}" || -n "${DTB:-}" ]] || ask "нет DTB_NAME/DTB — какой dtb для слота?"
 

@@ -2,6 +2,29 @@
 
 Как у [[lumag]]: ядро (+dtb) → `mkbootimg` → `boot.img` → `cdba -b <board> -h umbar.lab ./boot.img`.
 
+## Alpine minirootfs (как Zynq/ant)
+
+Аналог `ARCH=armv7 ./alpine-rootfs.sh …` + `install-init.sh`, но **aarch64** и консоль **ttyMSM0**:
+
+```bash
+# полный конвейер: Alpine → ramdisk ant+netd → boot-<slot>-alpine.img
+./scripts/mk-qcom-alpine-boot.sh rb3-1
+# только упаковка, rootfs уже есть:
+SKIP_ROOTFS=1 ./scripts/mk-qcom-alpine-boot.sh ifc6560-1
+```
+
+| | Zynq | qcom |
+|---|---|---|
+| ARCH | armv7 | aarch64 |
+| console | ttyPS0 | ttyMSM0 |
+| носитель | fit/SD | Android `boot.img` → cdba |
+| после `/init` | BusyBox init → getty | то же (**без** `stay`) |
+
+Ramdisk: `out/ramdisk_ant_aarch64_netd.cpio.gz` (~7 M).  
+Образ: `out/boot-<BOARD_ID>-alpine.img`.  
+Рядом остаётся путь **net_init stay** (тонкий MCP) — другой режим.
+
+
 ## dts/dtb на каждую плату
 
 Слот umbar = каталог `board/qcom/<BOARD_ID>/`:
