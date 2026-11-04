@@ -17,7 +17,7 @@
 | rb3-1 | sdm845-db845c.dts | sdm845-db845c.dtb | saved |
 | rb3gen2-1 | qcs6490-rb3gen2.dts | qcs6490-rb3gen2.dtb | saved |
 | rb5-1 | qrb5165-rb5.dts | qrb5165-rb5.dtb | saved |
-| rb5gen2-1 | qcs8550-rb5gen2.dts | — | dts-only |
+| rb5gen2-1 | qcs8550-rb5gen2.dts | qcs8550-rb5gen2.dtb | saved |
 | sdm845-hdk-1 | sdm845-mtp.dts | sdm845-mtp.dtb | saved |
 | sm8150-hdk-1 | sm8150-hdk.dts | sm8150-hdk.dtb | saved |
 | sm8350-hdk-1 | sm8350-hdk.dts | sm8350-hdk.dtb | saved |
