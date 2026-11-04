@@ -18,11 +18,9 @@ mkdir -p /config /sn
 mount -a 2>/dev/null || true
 # профиль сборки
 hostname Ant-miner
-# лог в файл СРАЗУ — пока нет консоли
-exec >>/var/log/boot.log 2>&1
-echo "=== rcS $(date 2>/dev/null || echo start) ==="
-export PS4='[$(date +%H:%M:%S)]: '
-set -x
+# лог в файл, консоль оставляем (иначе getty/cdba «немы»)
+mkdir -p /var/log
+echo "=== rcS $(date 2>/dev/null || echo start) ===" | tee -a /var/log/boot.log
 
 # syslogd (BusyBox) — дублирует в сокет/файл
 syslogd -n -O /var/log/messages &

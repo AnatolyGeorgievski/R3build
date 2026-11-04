@@ -1,14 +1,10 @@
 # /etc/inittab
-#
-# BusyBox init — без sysv runlevels
 ::sysinit:/etc/init.d/rcS
 
-# консоль Zynq
-ttyPS0::respawn:/sbin/getty -L 115200 ttyPS0 vt100
+# console сразу; UART — через ожидание узла
+::respawn:/sbin/getty -L 115200 console vt100
+ttyPS0::respawn:/sbin/getty-uart ttyPS0 115200
 
-# Ctrl+Alt+Del (если нужно)
 ::ctrlaltdel:/sbin/reboot
-
-# halt/reboot: BusyBox вызывает action shutdown
 ::shutdown:/etc/init.d/rcK
 ::shutdown:/bin/umount -a -r

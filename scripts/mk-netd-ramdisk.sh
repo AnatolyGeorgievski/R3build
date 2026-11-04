@@ -40,16 +40,40 @@ if [[ ! -e "$STAGING/sbin/init" && -x "$STAGING/bin/busybox" ]]; then
   ln -sf /bin/busybox "$STAGING/sbin/init"
 fi
 
-# console под плату (ant по умолчанию ttyPS0 / Zynq)
+# Alpine apk --no-script часто не ставит applet-symlinks (getty/hostname/…)
+if [[ -x "$STAGING/bin/busybox" ]]; then
+  echo "I: busybox --install -s (getty и пр.)"
+  chroot "$STAGING" /bin/busybox --install -s 2>/dev/null \
+    || "$STAGING/bin/busybox" --install -s "$STAGING" 2>/dev/null \
+    || true
+  # запас: явные ссылки, если install не сработал в chroot без qemu
+  for pair in sbin/getty bin/hostname sbin/mdev bin/login; do
+    dir=$(dirname "$pair"); base=$(basename "$pair")
+    mkdir -p "$STAGING/$dir"
+    if [[ ! -e "$STAGING/$pair" ]]; then
+      ln -sf /bin/busybox "$STAGING/$pair"
+    fi
+  done
+fi
+
+# console под плату (ant: ttyPS0 → ${CONSOLE}, плюс /dev/console)
 if [[ -f "$STAGING/etc/inittab" ]]; then
   sed -i \
     -e "s/ttyPS0/${CONSOLE}/g" \
     -e "s/^#ttyS0/${CONSOLE}/" \
     "$STAGING/etc/inittab" || true
-  if ! grep -q "$CONSOLE" "$STAGING/etc/inittab"; then
+  if ! grep -qE "^${CONSOLE}::" "$STAGING/etc/inittab"; then
     printf '%s::respawn:/sbin/getty -L 115200 %s vt100\n' "$CONSOLE" "$CONSOLE" \
       >>"$STAGING/etc/inittab"
   fi
+  if ! grep -q 'getty -L 115200 console' "$STAGING/etc/inittab"; then
+    printf '::respawn:/sbin/getty -L 115200 console vt100\n' >>"$STAGING/etc/inittab"
+  fi
+  # UART getty с ожиданием /dev/$CONSOLE
+  if [[ -x "$STAGING/sbin/getty-uart" ]] && ! grep -q "getty-uart ${CONSOLE}" "$STAGING/etc/inittab"; then
+    printf '%s::respawn:/sbin/getty-uart %s 115200\n' "$CONSOLE" "$CONSOLE" >>"$STAGING/etc/inittab"
+  fi
+  chmod +x "$STAGING/sbin/getty-uart" 2>/dev/null || true
 fi
 
 echo "I: install netd → /sbin/netd"

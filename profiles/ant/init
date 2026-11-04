@@ -1,6 +1,32 @@
 #!/bin/sh
-# devtmpfs does not get automounted for initramfs
-/bin/mount -t devtmpfs devtmpfs /dev
+# /init — быстрый вход; UART может подняться позже (getty-uart ждёт)
+/bin/mount -t proc proc /proc 2>/dev/null
+/bin/mount -t sysfs sysfs /sys 2>/dev/null
+/bin/mount -t devtmpfs devtmpfs /dev 2>/dev/null || /bin/mount -t tmpfs tmpfs /dev
+
+if [ -x /sbin/mdev ]; then /sbin/mdev -s
+elif [ -x /bin/busybox ]; then /bin/busybox mdev -s
+fi
+
+# коротко (~2с) — не съедать окно cdba
+i=0
+while [ "$i" -lt 20 ]; do
+  if [ -c /dev/ttyMSM0 ] || [ -c /dev/ttyPS0 ] || [ -c /dev/ttyS0 ]; then
+    break
+  fi
+  /bin/busybox usleep 100000 2>/dev/null || true
+  i=$((i + 1))
+done
+
+for t in ttyMSM0 ttyPS0 ttyS0 ttyAMA0; do
+  if [ -c "/dev/$t" ]; then
+    ln -sf "$t" /dev/console 2>/dev/null
+    echo "init: console -> $t" > /dev/kmsg 2>/dev/null
+    break
+  fi
+done
+echo "init: ready" > /dev/kmsg 2>/dev/null
+
 exec 0</dev/console
 exec 1>/dev/console
 exec 2>/dev/console
