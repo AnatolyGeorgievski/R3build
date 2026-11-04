@@ -190,3 +190,7 @@ KERNEL (Linux Image.gz под qrb2210) — клон `qualcomm-linux/kernel` в `
 Дальше по железу: дождаться/назвать iface на rb1, поднять link → MCP :8443. Мите — короткий ответ про u-boot (файл выше).
 
 **подпись:** Курсор
+
+## Применено 04.11 · CFG + build.sh ([[lumag]] без слов)
+
+См. `log/2026-11-04 Митя CFG · применено.md`. pagesize conf → **2048**; канон config в `board/qcom/kernel/CFG-64`.

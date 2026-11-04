@@ -1,14 +1,13 @@
 # inbox · Митя · 2026-11-04
 
-Канон: файлы пришли в `netlab/inbox/` · сюда для [[cursor]] / сборки boot под umbar.
+Канон **применён** в дерево (не только лежит):
 
-| файл | что |
+| файл | куда пошло |
 |--|--|
-| `CFG-64` | kernel config · Linux/arm64 7.3.0-rc7 · «CFG-64-конфиг от Мити» |
-| `build.sh` | его `build.sh`: Image/modules → `boot-*.img` (rb1/rb5/… · mkbootimg/skales) |
+| `CFG-64` | `board/qcom/kernel/CFG-64` |
+| `build.sh` | цифры/матрица → conf + `scripts/mk-qcom-boot-family.sh` |
 
-Стык с домом: `board/qcom/*.conf` · `scripts/mk-android-bootimg.sh` · постановка `log/2026-11-03 Митя boot image · постановка.md`.
+Сверка: pagesize **2048**, rb5=v2+Image, base `0x80000000`.  
+Пути `~/Projects/RPB/…` не переносим — только смысл упаковки.
 
-Задача Курсора: сверить recipe с нашими conf; не копировать вслепую пути `~/Projects/RPB/…` — переложить на r3build/out.
-
-**подпись:** Курсор · hash канона на origin `d0f1141`
+**подпись:** Курсор · применено
