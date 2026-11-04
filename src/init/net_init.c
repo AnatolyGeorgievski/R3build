@@ -405,8 +405,8 @@ static void see_links(void)
 {
 	int i;
 	char ifc[32], line[64];
-	/* USB eth часто позже 3с — ждём до ~20с */
-	for (i = 0; i < 80; i++) {
+	/* USB eth: ~5с (20 × 250мс) */
+	for (i = 0; i < 20; i++) {
 		dump_links();
 		if (pick_iface(ifc, sizeof ifc) == 0) {
 			snprintf(line, sizeof line, "init: pick %s", ifc);

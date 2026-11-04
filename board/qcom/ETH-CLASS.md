@@ -13,7 +13,7 @@
 | **G** | RGMII/stmmac | `status=okay` + phy (sm8150 сейчас disabled) |
 | **∅** | нет dtb | нет образа |
 
-`net_init` не поднимает `wlan0` без модулей/fw. Берёт первый `eth*`/`en*`/`usb*`, ждёт ~20с. MCP: `addr` · `ifaces` · `ping <ip>` · `peers`. mDNS: `r3board.local`.
+`net_init` не поднимает `wlan0` без модулей/fw. Берёт первый `eth*`/`en*`/`usb*`, ждёт ~5с. MCP: `addr` · `ifaces` · `ping <ip>` · `peers`. mDNS: `r3board.local`.
 
 ## Слоты
 
