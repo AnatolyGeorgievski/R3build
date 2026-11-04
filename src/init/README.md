@@ -30,6 +30,27 @@
 
 - `board/qcom/<BOARD_ID>/` — dts/dtb слотов umbar  
 - `scripts/mk-android-bootimg.sh` — упаковка  
-- `log/2026-11-03 Митя boot image · постановка.md` — ход  
+- `log/2026-11-03 Митя boot image · постановка.md` — ход
+
+
+## Цель вытеснения ([[george]] 03.11 ~21:43)
+
+**netd первым.** Демон сам: zcip · ntp · mDNS · DNS resolv · netlink; внутри — MCP для [[cursor]].  
+`net_init` здесь — early PID1 / stay до того, как в образе сидит полный netd. Не закреплять stub MCP как конечную точку.
+
+Профиль Pi / gpio: `godminer/src/board_rpi.h`; упаковка образа — скрипты r3build → SD/полка.
+
+## Отладка загрузки ([[george]] 04.11)
+
+**/init** — единственное место, куда реально вставлять отладку на **весь** процесс загрузки.  
+MCP + POSIX-инструменты **не требуют SHELL**. Канон: `docs/R3_DECLARATION.md` §4.
+
+## SBC vs сервер ([[george]] 04.11)
+
+- **SBC:** стратегия **ramdisk** → вытеснение busybox.  
+- **Сервер:** сеть · диски · модули в **netd** → **не нужны скрипты загрузки** и большая часть их утилит (initramfs как носитель может остаться).  
+
+Канон: `docs/R3_DECLARATION.md` §4 · `godminer/log/2026-10-20 вытеснение busybox.md`.
+
 
 **подпись:** Курсор

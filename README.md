@@ -1,3 +1,19 @@
+# R3build
+
+Дом сборки образов Ring-3: rootfs, `/init`, платы, профили. Коллаборанты собирают здесь; write ≠ доля во всех контурах.
+
+## Норматив (актуально 2026-11-04)
+
+| документ | о чём |
+|---|---|
+| [docs/R3_DECLARATION.md](docs/R3_DECLARATION.md) | совместная работа · этика netd · лицензия · контракты |
+| [docs/R3_ECOSYSTEM.md](docs/R3_ECOSYSTEM.md) | экосистема Ring-3 (открыто / private / закрыто) |
+| [src/init/README.md](src/init/README.md) | роль `net_init` · SBC ramdisk / сервер без скриптов загрузки |
+
+Связка: **R3-lib** (канон ABI) · **R3-net** (netd, **private**) · **r3build** (этот репозиторий).  
+Стратегия: SBC → ramdisk → вытеснение busybox; сервер → сеть/диски/модули в netd → без скриптов загрузки (initramfs как носитель может остаться).
+
+---
 
 # R3build 🛠️
 
@@ -17,7 +33,7 @@
 *   `alpine-rootfs.sh` — Основной сценарий сборки базы rootfs.
 *   `install-init.sh` — Скрипт установки кастомной инициализации.
 *   `profiles/` — Профили под целевые устройства (например, `ant`, `hurd` , `swarn`)
-*   `docs/` — Техническая документация и примеры скриптов.
+*   `docs/` — норматив: `R3_DECLARATION.md`, `R3_ECOSYSTEM.md`; BCP и прочее.
 
 ## 🚀 Быстрый старт (Пример сборки)
 
@@ -46,8 +62,9 @@ BOOT.bin (загрузка с SD/QSPI/NAND/NOR):
 
 Последовательность инициализации ОС:
  Ядро Linux
-   └── /init (стартовый скрипт ramdisk, подготовка окружения)
-       └── /sbin/init (передача управления → BusyBox init)
+   └── /init (ранний init: свой net_init/netd-контур или legacy-скрипт)
+       └── дальше — корень / службы; цель — MCP+POSIX без обязательного SHELL
+           (legacy: BusyBox init + rcS — вытесняется)
            └── /etc/inittab (конфигурация действий на загрузку/завершение)
                ├── sysinit:  /etc/init.d/rcS (Старт служб: syslog → mount → net → ntp → ssh)
                └── shutdown: /etc/init.d/rcK (Корректная остановка демонов перед reboot)

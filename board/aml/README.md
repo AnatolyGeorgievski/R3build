@@ -7,6 +7,8 @@
 
 **Не в git:** приватный SSH-ключ; бинарники USB-boot (~40 МБ `.enc`/`.img`) — остаются в `/home/george/aml_kernel/alpine/usb-boot/` (здесь только `alpine/usb-boot/README.txt` и pubkey).
 
+**03.11 ~23:16:** с Максом — продолжение AML; его Qualcomm/NPU и наше r3build — вместе (он знает Митю; GPU Adreno не его зона). Ход: `log/2026-10-30 коллаборанты Борис Макс.md`.
+
 Коллаборанту «можно ли собрать ядро»: **`ЕСЛИ-СОБРАТЬ-ЯДРО.md`** (да — Image.gz+dtb; нет — mtd4/rootfs/USB без доп. файлов).
 
 ---
