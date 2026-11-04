@@ -2,6 +2,8 @@
 
 Как у [[lumag]]: ядро (+dtb) → `mkbootimg` → `boot.img` → `cdba -b <board> -h umbar.lab ./boot.img`.
 
+Статус прогонов: [`docs/R3_UMBAR_STATUS.md`](../../docs/R3_UMBAR_STATUS.md).
+
 ## Alpine minirootfs (как Zynq/ant)
 
 Аналог `ARCH=armv7 ./alpine-rootfs.sh …` + `install-init.sh`, но **aarch64** и консоль **ttyMSM0**:
