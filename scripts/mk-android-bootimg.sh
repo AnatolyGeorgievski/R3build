@@ -32,9 +32,12 @@ need_cmd() {
 }
 
 # [[lumag]]: Skales-mkbootimg or Android one
+# v2 needs --header_version → Android mkbootimg; skales only for legacy
 MKBOOTIMG="${MKBOOTIMG:-}"
 if [[ -z "${MKBOOTIMG}" ]]; then
-  if command -v skales-mkbootimg >/dev/null 2>&1; then
+  if [[ "${MODE:-}" == "v2" ]] && command -v mkbootimg >/dev/null 2>&1; then
+    MKBOOTIMG=mkbootimg
+  elif command -v skales-mkbootimg >/dev/null 2>&1; then
     MKBOOTIMG=skales-mkbootimg
   elif command -v mkbootimg >/dev/null 2>&1; then
     MKBOOTIMG=mkbootimg
