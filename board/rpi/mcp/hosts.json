@@ -1,0 +1,27 @@
+{
+  "board": "rpi",
+  "profile": "board_rpi.h",
+  "hosts": [
+    {
+      "name": "pi-shelf",
+      "mac": "b8:27:eb:b7:69:31",
+      "serial": "2cb76931",
+      "ip": "192.168.1.82",
+      "mes": "gi1/0/14"
+    },
+    {
+      "name": "pi-net1",
+      "mac": "b8:27:eb:f2:2c:be",
+      "serial": "36f22cbe",
+      "ip": "192.168.1.83",
+      "mes": "gi1/0/15"
+    },
+    {
+      "name": "pi-net2",
+      "mac": "b8:27:eb:24:c0:e8",
+      "serial": "8c24c0e8",
+      "ip": "192.168.1.84",
+      "mes": "gi1/0/13"
+    }
+  ]
+}

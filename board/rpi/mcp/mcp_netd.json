@@ -1,0 +1,623 @@
+{
+  "protocolVersion": "2024-11-05",
+  "jsonrpc": "2.0",
+  "serverInfo": {
+    "name": "netd",
+    "version": "0.1.1",
+    "title": "netd BCP",
+    "description": "netd/e9pro applets: pool, boards(dtree), hbrd, eeprom, psu, dtree, …"
+  },
+  "capabilities": {
+    "tools": {
+      "listChanged": true
+    },
+    "resources": {
+      "listChanged": false
+    },
+    "prompts": {
+      "listChanged": false
+    }
+  },
+  "events": [
+    {
+      "name": "network-report",
+      "primitive": "N-REPORT.indication",
+      "code": "0x1A",
+      "confirm": false,
+      "direction": "netd -> service",
+      "source": [
+        "RTM_NEWLINK",
+        "RTM_DELLINK",
+        "RTM_NEWADDR",
+        "RTM_DELADDR"
+      ],
+      "fields": [
+        "peer_address",
+        "ifindex",
+        "ifname"
+      ],
+      "handler": ".report",
+      "origin": "log/2026-10-08 Моделирование прикладного уровня MCP.md, ASHRAE 135 Clause 6.1",
+      "description": "Unconfirmed network fact. A service calls react_register. The callback is appended. It does not answer. A fault from the same loop arrives on this callback with error set. Splitting that fault into network-error is later."
+    },
+    {
+      "name": "network-error",
+      "primitive": "N-REPORT.indication",
+      "code": "0x1A",
+      "confirm": false,
+      "direction": "netd -> service",
+      "source": [
+        "ETIMEDOUT",
+        "ECONNRESET",
+        "EPIPE"
+      ],
+      "fields": [
+        "peer_address",
+        "error_condition",
+        "error_parameters"
+      ],
+      "handler": ".abort",
+      "origin": "log/2026-10-08 Моделирование прикладного уровня MCP.md, error_condition of N-REPORT",
+      "description": "Network error. Same indication, field error_condition. For now the fault arrives on the one report callback; a separate .abort is later."
+    }
+  ],
+  "tools": [
+    {
+      "name": "pool",
+      "title": "Mining pool list/add/set/remove/select",
+      "description": "Args: list | add | set | remove | select — same as CLI ./netd pool …",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "$1": {
+            "type": "string",
+            "description": "list|add|set|remove|select"
+          },
+          "url": {
+            "type": "string"
+          },
+          "worker": {
+            "type": "string"
+          },
+          "index": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "conf",
+      "title": "netd flat config",
+      "description": "show|load|save — /etc/netd_config.conf",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "cmd": {
+            "type": "string",
+            "enum": [
+              "show",
+              "load",
+              "save",
+              "sync"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "boards",
+      "title": "Mock / seeded board list",
+      "description": "Board list: live dtree after probe (source:dtree); seed only if tree empty (selftest).",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "netlink",
+      "title": "Link/addr dump",
+      "description": "YAML-ish netlink cache",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "dns",
+      "title": "DNS resolve A/TXT",
+      "description": "Args: name [A|TXT]",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "ntp",
+      "title": "NTP query",
+      "description": "Args: a.b.c.d [--set]",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "server": {
+            "type": "string"
+          }
+        }
+      }
+    },
+        {
+      "name": "gpio",
+      "title": "GPIO v2 lines (board_rpi BCM)",
+      "description": "CLI: gpio get -g LINE | gpio set -g LINE -v 0|1 | gpio led red|green on|off [sec]. LINE = BCM (17/27 = LED red/green on board_rpi).",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "$1": { "type": "string", "description": "get|set|led|reset|key|plug|?" },
+          "$2": { "type": "string" },
+          "$3": { "type": "string" },
+          "$4": { "type": "string" },
+          "$5": { "type": "string" },
+          "g": { "type": "string", "description": "BCM line" },
+          "v": { "type": "string", "description": "0|1" }
+        }
+      }
+    },
+{
+      "name": "ls",
+      "title": "Directory list",
+      "description": "Args: path or glob",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "mdns",
+      "title": "mDNS herd dump/watch",
+      "description": "CLI: mdns [dump|watch [sec] [if]] — peer table from react/mDNS",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "$1": {
+            "type": "string",
+            "enum": [
+              "dump",
+              "watch"
+            ]
+          },
+          "$2": {
+            "type": "string",
+            "description": "watch seconds"
+          },
+          "$3": {
+            "type": "string",
+            "description": "watch interface"
+          }
+        }
+      }
+    },
+    {
+      "name": "react",
+      "title": "Herd react loop",
+      "description": "CLI: react [status|herd|start [if] [port]|stop]. The loop polls netlink and mDNS. mDNS calls react_register: a created address (RTM_NEWADDR) sends an announce.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "$1": {
+            "type": "string",
+            "enum": [
+              "status",
+              "herd",
+              "start",
+              "stop"
+            ]
+          },
+          "$2": {
+            "type": "string",
+            "description": "interface for start"
+          },
+          "$3": {
+            "type": "string",
+            "description": "MCP/RPC port announced in mDNS"
+          }
+        }
+      }
+    },
+    {
+      "name": "zcip",
+      "title": "IPv4 link-local (RFC 3927)",
+      "description": "CLI: zcip <ifname> [169.254.x.y]",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "$1": {
+            "type": "string",
+            "description": "interface"
+          },
+          "$2": {
+            "type": "string",
+            "description": "optional preferred 169.254.x.y"
+          }
+        }
+      }
+    },
+    {
+      "name": "bmu",
+      "title": "BMU firmware archive",
+      "description": "Verify/list BMU: -V -s HARDWARE file.bmu pubkey [outdir]. CLI same as ./netd bmu …",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "cmd": {
+            "type": "string",
+            "description": "verify|list|extract (maps to -V/-x)"
+          },
+          "hardware": {
+            "type": "string",
+            "description": "-s pattern e.g. AMLCtrl_BHB56XXX"
+          },
+          "bmu": {
+            "type": "string",
+            "description": "path to .bmu"
+          },
+          "pub": {
+            "type": "string",
+            "description": "RSA public key PEM path"
+          },
+          "path": {
+            "type": "string",
+            "description": "output dir for extract"
+          }
+        }
+      }
+    },
+    {
+      "name": "tar",
+      "title": "ustar list/extract",
+      "description": "Canonical: tar -t archive.tar | tar -x -C /dest archive.tar. Paths with .. rejected.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "cmd": {
+            "type": "string",
+            "enum": [
+              "list",
+              "extract"
+            ],
+            "description": "-t or -x"
+          },
+          "archive": {
+            "type": "string",
+            "description": "path to .tar or .tar.gz"
+          },
+          "dest": {
+            "type": "string",
+            "description": "-C extract directory"
+          }
+        },
+        "required": [
+          "archive"
+        ]
+      }
+    },
+    {
+      "name": "dtree",
+      "title": "Device tree seed / list",
+      "description": "dtree create|get|set|delete. get/set via object_get_param/object_set_param (.rep only).",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "cmd": {
+            "type": "string",
+            "description": "create | get | set | delete | list | dump | class"
+          },
+          "oid": {
+            "type": "string",
+            "description": "rt@ins"
+          },
+          "prop": {
+            "type": "string",
+            "description": "property in class .ns/.rep"
+          },
+          "$1": {
+            "type": "string",
+            "description": "cmd (alt) or set value"
+          },
+          "$2": {
+            "type": "string",
+            "description": "rt@ins alt"
+          }
+        }
+      }
+    },
+    {
+      "name": "test",
+      "title": "POSIX test / [",
+      "description": "Conditional evaluation: -f -d -e -z -n --eq --ne --lt --le --gt --ge. Args mirror CLI; use $1 $2 for operands with BOOL ops.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "f": {
+            "type": "string",
+            "description": "regular file PATH"
+          },
+          "d": {
+            "type": "string",
+            "description": "directory PATH"
+          },
+          "e": {
+            "type": "string",
+            "description": "exists PATH"
+          },
+          "z": {
+            "type": "boolean",
+            "description": "empty string test; operand $1"
+          },
+          "n": {
+            "type": "boolean",
+            "description": "non-empty; operand $1"
+          },
+          "eq": {
+            "type": "boolean"
+          },
+          "ne": {
+            "type": "boolean"
+          },
+          "lt": {
+            "type": "boolean"
+          },
+          "gt": {
+            "type": "boolean"
+          },
+          "le": {
+            "type": "boolean"
+          },
+          "ge": {
+            "type": "boolean"
+          },
+          "$1": {
+            "type": "string"
+          },
+          "$2": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "hbrd",
+      "title": "Hash board (E9pro)",
+      "description": "Live hashboard from device tree after probe. hbrd [-d N] [-v]",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "d": {
+            "type": "string",
+            "description": "board index 0..N"
+          },
+          "v": {
+            "type": "boolean",
+            "description": "verbose baud/phy/freq/temp/hrate"
+          },
+          "$1": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "eeprom",
+      "title": "Hash board EEPROM",
+      "description": "EEPROM dump for chain after probe. eeprom [-d N] [-v]",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "d": {
+            "type": "string",
+            "description": "board index"
+          },
+          "v": {
+            "type": "boolean",
+            "description": "raw dump"
+          },
+          "$1": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "psu",
+      "title": "PSU APW12",
+      "description": "psu info|on|off|voltage — after probe. Prefer info; on/off/voltage only when intended.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "$1": {
+            "type": "string",
+            "description": "info|on|off|voltage"
+          },
+          "$2": {
+            "type": "string",
+            "description": "voltage value if voltage"
+          }
+        }
+      }
+    },
+    {
+      "name": "hwtest",
+      "title": "Hardware test catalog",
+      "description": "Read-only catalog of e9pro --test=1…6. list only in netd (no mining/PSU). run not wired here — use e9pro --test=N. Does not replace POSIX test.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "cmd": {
+            "type": "string",
+            "description": "list|run (run refused in netd)",
+            "enum": [
+              "list",
+              "run",
+              "ls",
+              "catalog"
+            ]
+          },
+          "$1": {
+            "type": "string",
+            "description": "cmd positional (list|run)"
+          }
+        }
+      }
+    },
+    {
+      "name": "kill",
+      "title": "Signal process",
+      "description": "Send TERM|HUP|USR1|USR2|INT to pid or self. Graceful e9pro exit: TERM. Pool ±: USR1/USR2. Soft restart: HUP. Args: sig + pid|self.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "sig": {
+            "type": "string",
+            "description": "TERM|HUP|USR1|USR2|INT or number",
+            "enum": [
+              "TERM",
+              "HUP",
+              "USR1",
+              "USR2",
+              "INT"
+            ]
+          },
+          "pid": {
+            "type": "string",
+            "description": "pid or self (default self if omitted with bare raise-style)"
+          },
+          "$1": {
+            "type": "string",
+            "description": "sig or pid positional"
+          },
+          "$2": {
+            "type": "string",
+            "description": "pid if $1 is sig"
+          }
+        }
+      }
+    },
+    {
+      "name": "raise",
+      "title": "Signal self",
+      "description": "raise(sig) on this process only — MCP way to stop self. TERM graceful, HUP restart, USR1/USR2 pool.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "sig": {
+            "type": "string",
+            "enum": [
+              "TERM",
+              "HUP",
+              "USR1",
+              "USR2",
+              "INT"
+            ]
+          },
+          "$1": {
+            "type": "string",
+            "description": "signal name if positional"
+          }
+        }
+      }
+    }
+  ],
+  "resources": [
+    {
+      "uri": "file://src/mcp_netd.json",
+      "name": "mcp_manifest",
+      "title": "MCP manifest",
+      "description": "Self manifest for smoke tests",
+      "mimeType": "application/json"
+    },
+    {
+      "uri": "miner://status",
+      "name": "status_snapshot",
+      "title": "Status snapshot (stub)",
+      "description": "YAML-ish status for BCP without hardware",
+      "mimeType": "application/json"
+    },
+    {
+      "uri": "file:///tmp/out",
+      "name": "extract_workdir",
+      "title": "BMU/tar extract workdir",
+      "description": "Typical -C /tmp/out target for firmware smoke",
+      "mimeType": "text/plain"
+    },
+    {
+      "uri": "/.well-known/oauth-protected-resource",
+      "name": "oauth_protected_resource",
+      "title": "OAuth protected resource",
+      "description": "stub, no login",
+      "mimeType": "application/json",
+      "text": "{}"
+    },
+    {
+      "uri": "/.well-known/oauth-protected-resource/mcp",
+      "name": "oauth_protected_resource_mcp",
+      "title": "OAuth protected resource mcp",
+      "description": "stub, no login",
+      "mimeType": "application/json",
+      "text": "{}"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "diagnose",
+      "title": "Diagnose network",
+      "description": "Run netlink + dns + ntp + mdns dump for netd BCP"
+    },
+    {
+      "name": "pool_check",
+      "title": "Check mining pools",
+      "description": "List configured pools and active index"
+    },
+    {
+      "name": "firmware_check",
+      "title": "Firmware BMU verify",
+      "description": "bmu -V -s HARDWARE file.bmu /etc/bitmain.pub — trust anchors under /etc or /etc/trusted"
+    }
+  ],
+  "resourceTemplates": [
+    {
+      "uriTemplate": "file://config/topo_{board}.json",
+      "name": "board_topology",
+      "description": "Topology topo_{board}.json",
+      "mimeType": "application/json"
+    },
+    {
+      "uriTemplate": "file:///tmp/out/{name}",
+      "name": "extracted_blob",
+      "description": "File under BMU/tar extract tree",
+      "mimeType": "application/octet-stream"
+    }
+  ]
+}

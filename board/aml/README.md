@@ -2,6 +2,8 @@
 
 Консоль: `ttyAML0`. Серия и инструкция Макса Фурмана (production A113D).
 
+Канон r3build (цель + донор Макс): [`docs/R3_AML_A113D.md`](../../docs/R3_AML_A113D.md).
+
 Носитель в r3build: этот каталог. Исходный дубль на диске: `/home/george/aml_kernel/`.  
 Сборка 2026-10-30 по инструкции «отдельно на Linux»: артефакты `/home/george/a113d-build/build/` (`Image.gz`, dtb).
 

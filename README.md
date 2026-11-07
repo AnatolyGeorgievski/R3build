@@ -9,7 +9,11 @@
 | [docs/R3_DECLARATION.md](docs/R3_DECLARATION.md) | совместная работа · этика netd · лицензия · контракты |
 | [docs/R3_ECOSYSTEM.md](docs/R3_ECOSYSTEM.md) | экосистема Ring-3 (открыто / private / закрыто) |
 | [docs/R3_STAND.md](docs/R3_STAND.md) | **концепция стенда** · полка отладки · netboot как fastboot · электрощит |
+| [docs/R3_STAND_BCP.md](docs/R3_STAND_BCP.md) | **стенд BCP** · сочинение для людей · урок Мити выполнен · PPPS · I2C/реле |
+| [board/rpi/mcp/](board/rpi/mcp/) | **MCP-конфиги стенда** · манифест · hosts · правила сборки ramdisk |
+| [board/rpi/netboot-stub/](board/rpi/netboot-stub/) | **правила SD stub** · только `bootcode.bin` |
 | [docs/R3_UMBAR_STATUS.md](docs/R3_UMBAR_STATUS.md) | **статус полки umbar** · stay / Alpine login / eth · диск Мити `PARTLABEL=rootfs` |
+| [docs/R3_AML_A113D.md](docs/R3_AML_A113D.md) | **AML A113D** · образ + перенос на платы (донор Макс, рамка R3) |
 | [src/init/README.md](src/init/README.md) | роль `net_init` · SBC ramdisk / сервер без скриптов загрузки |
 
 Связка: **R3-lib** (канон ABI) · **R3-net** (netd, **private**) · **r3build** (этот репозиторий).  
